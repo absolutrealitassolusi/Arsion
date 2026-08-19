@@ -7,7 +7,17 @@ import * as schema from "@/db/schema";
 const globalForDb = globalThis as unknown as { pool?: Pool };
 
 function createPool() {
-  return new Pool({ connectionString: process.env.DATABASE_URL });
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
+    // Kecil sengaja - di Vercel (serverless) tiap function instance jalan
+    // sebagai proses terpisah, jadi total koneksi ke Postgres = jumlah
+    // instance x max ini. Pool besar per-instance gampang ngabisin slot
+    // koneksi pooler Supabase pas banyak instance jalan bersamaan. 1 request
+    // di app ini gak pernah butuh lebih dari 1 koneksi bersamaan (gak ada
+    // query paralel dalam 1 handler), jadi max kecil gak bikin request
+    // nunggu antre.
+    max: process.env.NODE_ENV === "production" ? 3 : 10,
+  });
 }
 
 const pool = globalForDb.pool ?? createPool();
