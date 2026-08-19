@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dominan putih & abu muda #F8F9FA */
+    --background: 210 20% 98%;        /* #F8F9FA */
+    --foreground: 222 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 12%;
+
+    --primary: 221 83% 53%;           /* #2563EB */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 20% 20%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 221 83% 96%;
+    --accent-foreground: 221 83% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 221 83% 53%;
+  }
+
+  .dark {
+    --background: 222 25% 8%;
+    --foreground: 210 20% 96%;
+
+    --card: 222 22% 11%;
+    --card-foreground: 210 20% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 25% 8%;
+
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 222 18% 15%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 217 60% 18%;
+    --accent-foreground: 210 30% 90%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 60% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 222 16% 20%;
+    --input: 222 16% 20%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+/*
+ * Dokumen cetak (Payment Voucher, dll) dirender di kertas A4 - ukuran dan
+ * margin diatur di sini karena Tailwind tidak punya utility untuk @page.
+ * Warna dipaksa terang (bukan ikut dark mode) karena dokumen cetak harus
+ * selalu hitam-di-atas-putih.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /*
+   * Browser default-nya tidak nge-print warna background (mis. shading abu-abu
+   * di kolom label tabel meta) kecuali dipaksa - tanpa ini dokumen cetak
+   * kelihatan lebih polos/flat dibanding template aslinya.
+   */
+  * {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Tombol bulat React Query Devtools (pojok kanan bawah) - dev-only, gak boleh ikut kefoto. */
+  .tsqd-parent-container {
+    display: none !important;
+  }
+}

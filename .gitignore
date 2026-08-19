@@ -1,0 +1,16 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+# Playwright - hasil test run & session cookie hasil auth.setup.ts
+/test-results
+/playwright-report
+/e2e/.auth
+
+# Build/cache artifacts
+.next
+tsconfig.tsbuildinfo
+
+# Claude Code local session state (permission allowlist & lock file spesifik
+# per-mesin/sesi, bukan config yang dimaksud buat dibagi ke tim)
+.claude
