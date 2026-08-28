@@ -1,11 +1,12 @@
 import "dotenv/config";
 import { db } from "@/lib/db";
-import { roles, users, vendors, customers, paymentVouchers, notifications, company } from "@/db/schema";
+import { roles, users, vendors, customers, projects, paymentVouchers, notifications, company } from "@/db/schema";
 import { setUserRoles } from "@/db/user-roles-helpers";
 import { dummyUsers } from "@/mocks/data/users";
 import { dummyRoles } from "@/mocks/data/roles";
 import { dummyVendors } from "@/mocks/data/vendors";
 import { dummyCustomers } from "@/mocks/data/customers";
+import { dummyProjects } from "@/mocks/data/projects";
 import { dummyPaymentVouchers } from "@/mocks/data/payment-vouchers";
 import { dummyNotifications } from "@/mocks/data/notifications";
 
@@ -91,6 +92,24 @@ async function main() {
       .insert(customers)
       .values(values)
       .onConflictDoUpdate({ target: customers.code, set: values });
+  }
+
+  console.log("Seeding projects...");
+  for (const project of dummyProjects) {
+    const values = {
+      name: project.name,
+      code: project.code,
+      description: project.description,
+      clientName: project.clientName,
+      picName: project.picName,
+      startDate: project.startDate ? new Date(project.startDate) : undefined,
+      endDate: project.endDate ? new Date(project.endDate) : undefined,
+      status: project.status,
+    };
+    await db
+      .insert(projects)
+      .values(values)
+      .onConflictDoUpdate({ target: projects.code, set: values });
   }
 
   console.log("Seeding payment vouchers...");

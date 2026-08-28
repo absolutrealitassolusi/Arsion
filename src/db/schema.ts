@@ -6,6 +6,7 @@ import type { PaymentVoucherItem, PaymentVoucherHistoryEntry } from "@/types/pay
 export const userStatusEnum = pgEnum("UserStatus", ["active", "inactive"]);
 export const vendorStatusEnum = pgEnum("VendorStatus", ["active", "inactive"]);
 export const customerStatusEnum = pgEnum("CustomerStatus", ["active", "inactive"]);
+export const projectStatusEnum = pgEnum("ProjectStatus", ["ongoing", "completed", "on_hold", "cancelled"]);
 export const pvDirectionEnum = pgEnum("PvDirection", ["in", "out"]);
 export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid"]);
 export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque"]);
@@ -82,6 +83,20 @@ export const customers = pgTable("Customer", {
   phone: text("phone"),
   address: text("address").notNull(),
   status: customerStatusEnum("status").notNull().default("active"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
+});
+
+export const projects = pgTable("Project", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  clientName: text("clientName"),
+  picName: text("picName"),
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
+  status: projectStatusEnum("status").notNull().default("ongoing"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
 });

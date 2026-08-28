@@ -81,6 +81,7 @@ export const navItems: NavItem[] = [
       { label: "Vendor", href: "/master-data/vendor", permission: PERMISSIONS.MASTER_DATA_VENDOR },
       { label: "Customer", href: "/master-data/customer", permission: PERMISSIONS.MASTER_DATA_CUSTOMER },
       { label: "Company", href: "/master-data/company", permission: PERMISSIONS.MASTER_DATA_COMPANY },
+      { label: "Project", href: "/master-data/project", permission: PERMISSIONS.MASTER_DATA_PROJECT },
     ],
   },
   {
@@ -116,6 +117,7 @@ export const segmentLabelMap: Record<string, string> = {
   vendor: "Vendor",
   customer: "Customer",
   company: "Company",
+  project: "Project",
   "manajemen-user": "Manajemen User & Akses",
   "daftar-user": "Daftar User",
   "daftar-role": "Daftar Role",

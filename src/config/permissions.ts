@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   MASTER_DATA_VENDOR: "master-data.vendor",
   MASTER_DATA_CUSTOMER: "master-data.customer",
   MASTER_DATA_COMPANY: "master-data.company",
+  MASTER_DATA_PROJECT: "master-data.project",
   USER_MGMT_USERS: "user-management.users",
   USER_MGMT_ROLES: "user-management.roles",
   USER_MGMT_PROFILE: "user-management.profile",
@@ -46,6 +47,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: PERMISSIONS.MASTER_DATA_VENDOR, label: "Kelola Vendor" },
       { key: PERMISSIONS.MASTER_DATA_CUSTOMER, label: "Kelola Customer" },
       { key: PERMISSIONS.MASTER_DATA_COMPANY, label: "Kelola Company" },
+      { key: PERMISSIONS.MASTER_DATA_PROJECT, label: "Kelola Project" },
     ],
   },
   {
