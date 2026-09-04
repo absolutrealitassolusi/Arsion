@@ -53,6 +53,11 @@ export const navItems: NavItem[] = [
         permission: PERMISSIONS.PV_PAY,
       },
       {
+        label: "Invoice",
+        href: "/finance/invoice",
+        permission: PERMISSIONS.FINANCE_INVOICE,
+      },
+      {
         label: "Tax",
         children: [
           { label: "Tax In", href: "/finance/tax/tax-in", permission: PERMISSIONS.PV_PAY },
@@ -105,6 +110,7 @@ export const segmentLabelMap: Record<string, string> = {
   "pv-out": "PV Out",
   approval: "Approval",
   payment: "Payment",
+  invoice: "Invoice",
   tax: "Tax",
   "tax-in": "Tax In",
   "tax-out": "Tax Out",

@@ -2,6 +2,7 @@ import { pgTable, pgEnum, text, timestamp, boolean, doublePrecision, jsonb, prim
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import type { PaymentVoucherItem, PaymentVoucherHistoryEntry } from "@/types/payment-voucher";
+import type { InvoiceItem, InvoiceHistoryEntry } from "@/types/invoice";
 
 export const userStatusEnum = pgEnum("UserStatus", ["active", "inactive"]);
 export const vendorStatusEnum = pgEnum("VendorStatus", ["active", "inactive"]);
@@ -11,6 +12,7 @@ export const pvDirectionEnum = pgEnum("PvDirection", ["in", "out"]);
 export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid"]);
 export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque"]);
 export const notificationTypeEnum = pgEnum("NotificationType", ["info", "success", "warning"]);
+export const invoiceStatusEnum = pgEnum("InvoiceStatus", ["draft", "sent", "paid"]);
 
 export const users = pgTable("User", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -145,6 +147,25 @@ export const paymentVouchers = pgTable("PaymentVoucher", {
   preparedSignatureSnapshot: text("preparedSignatureSnapshot"),
   approvedSignatureSnapshot: text("approvedSignatureSnapshot"),
   paidSignatureSnapshot: text("paidSignatureSnapshot"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
+});
+
+export const invoices = pgTable("Invoice", {
+  id: text("id").primaryKey().$defaultFn(() => createId()),
+  invoiceNumber: text("invoiceNumber").notNull().unique(),
+  customerName: text("customerName").notNull(),
+  date: timestamp("date").notNull(),
+  dueDate: timestamp("dueDate").notNull(),
+  items: jsonb("items").$type<InvoiceItem[]>().notNull(),
+  ppnPercent: doublePrecision("ppnPercent").notNull(),
+  subtotal: doublePrecision("subtotal").notNull(),
+  ppnAmount: doublePrecision("ppnAmount").notNull(),
+  totalAmount: doublePrecision("totalAmount").notNull(),
+  notes: text("notes"),
+  status: invoiceStatusEnum("status").notNull().default("draft"),
+  preparedBy: text("preparedBy").notNull(),
+  history: jsonb("history").$type<InvoiceHistoryEntry[]>().notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
 });

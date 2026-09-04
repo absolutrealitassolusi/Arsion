@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "@/lib/db";
-import { roles, users, vendors, customers, projects, paymentVouchers, notifications, company } from "@/db/schema";
+import { roles, users, vendors, customers, projects, paymentVouchers, invoices, notifications, company } from "@/db/schema";
 import { setUserRoles } from "@/db/user-roles-helpers";
 import { dummyUsers } from "@/mocks/data/users";
 import { dummyRoles } from "@/mocks/data/roles";
@@ -8,7 +8,9 @@ import { dummyVendors } from "@/mocks/data/vendors";
 import { dummyCustomers } from "@/mocks/data/customers";
 import { dummyProjects } from "@/mocks/data/projects";
 import { dummyPaymentVouchers } from "@/mocks/data/payment-vouchers";
+import { dummyInvoices } from "@/mocks/data/invoices";
 import { dummyNotifications } from "@/mocks/data/notifications";
+import { calculateInvoiceTotals } from "@/types/invoice";
 
 /** Password sementara buat semua user seed - kasih tau user buat diganti setelah login pertama. */
 const SEED_PASSWORD = "Ares@2026";
@@ -153,6 +155,27 @@ async function main() {
       .insert(paymentVouchers)
       .values({ voucherNumber: voucher.voucherNumber, ...shared })
       .onConflictDoUpdate({ target: paymentVouchers.voucherNumber, set: shared });
+  }
+
+  console.log("Seeding invoices...");
+  for (const invoice of dummyInvoices) {
+    const totals = calculateInvoiceTotals(invoice.items, invoice.ppnPercent);
+    const shared = {
+      customerName: invoice.customerName,
+      date: new Date(invoice.date),
+      dueDate: new Date(invoice.dueDate),
+      items: invoice.items,
+      ppnPercent: invoice.ppnPercent,
+      ...totals,
+      notes: invoice.notes,
+      status: invoice.status,
+      preparedBy: invoice.preparedBy,
+      history: invoice.history,
+    };
+    await db
+      .insert(invoices)
+      .values({ invoiceNumber: invoice.invoiceNumber, ...shared })
+      .onConflictDoUpdate({ target: invoices.invoiceNumber, set: shared });
   }
 
   console.log("Seeding notifications...");

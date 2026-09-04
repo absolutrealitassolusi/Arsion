@@ -3,6 +3,7 @@ export const PERMISSIONS = {
   PV_VIEW: "pv.view",
   PV_APPROVE: "pv.approve",
   PV_PAY: "pv.pay",
+  FINANCE_INVOICE: "finance.invoice",
   FINANCE_ARCHIVE_VIEW: "finance-archive.view",
   REPORTS_VIEW: "reports.view",
   MASTER_DATA_VENDOR: "master-data.vendor",
@@ -33,6 +34,10 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: Permission;
       { key: PERMISSIONS.PV_APPROVE, label: "Approve / Reject Payment Voucher" },
       { key: PERMISSIONS.PV_PAY, label: "Tandai Payment Voucher Dibayar" },
     ],
+  },
+  {
+    label: "Invoice",
+    permissions: [{ key: PERMISSIONS.FINANCE_INVOICE, label: "Kelola Invoice" }],
   },
   {
     label: "Arsip & Laporan Finance",
