@@ -46,22 +46,24 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const [codeTaken] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.code, parsed.data.code), ne(projects.id, id)))
+    .where(and(eq(projects.id, parsed.data.code), ne(projects.id, id)))
     .limit(1);
   if (codeTaken) {
     return NextResponse.json({ message: "Kode project sudah dipakai." }, { status: 409 });
   }
 
+  const { code, ...rest } = parsed.data;
   const [project] = await db
     .update(projects)
     .set({
-      ...parsed.data,
+      ...rest,
+      id: code,
       startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : null,
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
     })
     .where(eq(projects.id, id))
     .returning();
-  await logActivity(auth.user.name, "Edit Project", `${project!.name} (${project!.code})`);
+  await logActivity(auth.user.name, "Edit Project", `${project!.name} (${project!.id})`);
   return NextResponse.json({ data: serializeProject(project!) });
 }
 
@@ -76,6 +78,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   await db.delete(projects).where(eq(projects.id, id));
-  await logActivity(auth.user.name, "Hapus Project", `${existing.name} (${existing.code})`);
+  await logActivity(auth.user.name, "Hapus Project", `${existing.name} (${existing.id})`);
   return NextResponse.json({ message: "Project berhasil dihapus" });
 }

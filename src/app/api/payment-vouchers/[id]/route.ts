@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     .where(eq(paymentVouchers.id, id))
     .returning();
 
-  await logActivity(auth.user.name, "Edit PV", `${updated!.voucherNumber} (${updated!.partyName})`);
+  await logActivity(auth.user.name, "Edit PV", `${updated!.id} (${updated!.partyName})`);
 
   return NextResponse.json({ data: serializePaymentVoucher(updated!) });
 }
@@ -129,6 +129,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   await db.delete(paymentVouchers).where(eq(paymentVouchers.id, id));
-  await logActivity(auth.user.name, "Hapus PV", `${existing.voucherNumber} (${existing.partyName})`);
+  await logActivity(auth.user.name, "Hapus PV", `${existing.id} (${existing.partyName})`);
   return NextResponse.json({ message: "Payment Voucher berhasil dihapus" });
 }

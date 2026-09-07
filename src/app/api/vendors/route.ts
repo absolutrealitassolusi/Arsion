@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const rows = await db
     .select()
     .from(vendors)
-    .where(search ? or(ilike(vendors.name, `%${search}%`), ilike(vendors.code, `%${search}%`)) : undefined)
+    .where(search ? or(ilike(vendors.name, `%${search}%`), ilike(vendors.id, `%${search}%`)) : undefined)
     .orderBy(desc(vendors.createdAt));
 
   const data = rows.map(serializeVendor);
@@ -38,12 +38,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const [existing] = await db.select().from(vendors).where(eq(vendors.code, parsed.data.code)).limit(1);
+  const [existing] = await db.select().from(vendors).where(eq(vendors.id, parsed.data.code)).limit(1);
   if (existing) {
     return NextResponse.json({ message: "Kode vendor sudah dipakai." }, { status: 409 });
   }
 
-  const [vendor] = await db.insert(vendors).values(parsed.data).returning();
-  await logActivity(auth.user.name, "Tambah Vendor", `${vendor!.name} (${vendor!.code})`);
+  const { code, ...rest } = parsed.data;
+  const [vendor] = await db.insert(vendors).values({ ...rest, id: code }).returning();
+  await logActivity(auth.user.name, "Tambah Vendor", `${vendor!.name} (${vendor!.id})`);
   return NextResponse.json({ data: serializeVendor(vendor!) }, { status: 201 });
 }

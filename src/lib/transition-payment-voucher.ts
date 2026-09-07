@@ -26,7 +26,7 @@ const SIGNATURE_SNAPSHOT_COLUMN: Partial<Record<PvStatus, "approvedSignatureSnap
  */
 function notificationCopyFor(
   newStatus: PvStatus,
-  voucher: { voucherNumber: string; partyName: string },
+  voucher: { id: string; partyName: string },
   by: string,
   note?: string
 ): { title: string; description: string; type: NotificationType } | null {
@@ -34,25 +34,25 @@ function notificationCopyFor(
     case "submitted":
       return {
         title: "Payment Voucher diajukan",
-        description: `${voucher.voucherNumber} (${voucher.partyName}) menunggu approval.`,
+        description: `${voucher.id} (${voucher.partyName}) menunggu approval.`,
         type: "info",
       };
     case "approved":
       return {
         title: "Payment Voucher disetujui",
-        description: `${voucher.voucherNumber} (${voucher.partyName}) disetujui oleh ${by}.`,
+        description: `${voucher.id} (${voucher.partyName}) disetujui oleh ${by}.`,
         type: "success",
       };
     case "rejected":
       return {
         title: "Payment Voucher ditolak",
-        description: `${voucher.voucherNumber} (${voucher.partyName}) ditolak oleh ${by}${note ? ` - ${note}` : ""}.`,
+        description: `${voucher.id} (${voucher.partyName}) ditolak oleh ${by}${note ? ` - ${note}` : ""}.`,
         type: "warning",
       };
     case "paid":
       return {
         title: "Payment Voucher dibayar",
-        description: `${voucher.voucherNumber} (${voucher.partyName}) ditandai sudah dibayar oleh ${by}.`,
+        description: `${voucher.id} (${voucher.partyName}) ditandai sudah dibayar oleh ${by}.`,
         type: "success",
       };
     default:
@@ -117,7 +117,7 @@ export async function transitionPaymentVoucher(
 
   const activityAction = ACTIVITY_ACTION_FOR[newStatus];
   if (activityAction) {
-    await logActivity(by, activityAction, `${current.voucherNumber} (${current.partyName})`);
+    await logActivity(by, activityAction, `${current.id} (${current.partyName})`);
   }
 
   return NextResponse.json({ data: serializePaymentVoucher(updated!) });

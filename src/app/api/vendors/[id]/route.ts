@@ -46,14 +46,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const [codeTaken] = await db
     .select()
     .from(vendors)
-    .where(and(eq(vendors.code, parsed.data.code), ne(vendors.id, id)))
+    .where(and(eq(vendors.id, parsed.data.code), ne(vendors.id, id)))
     .limit(1);
   if (codeTaken) {
     return NextResponse.json({ message: "Kode vendor sudah dipakai." }, { status: 409 });
   }
 
-  const [vendor] = await db.update(vendors).set(parsed.data).where(eq(vendors.id, id)).returning();
-  await logActivity(auth.user.name, "Edit Vendor", `${vendor!.name} (${vendor!.code})`);
+  const { code, ...rest } = parsed.data;
+  const [vendor] = await db.update(vendors).set({ ...rest, id: code }).where(eq(vendors.id, id)).returning();
+  await logActivity(auth.user.name, "Edit Vendor", `${vendor!.name} (${vendor!.id})`);
   return NextResponse.json({ data: serializeVendor(vendor!) });
 }
 
@@ -68,6 +69,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   await db.delete(vendors).where(eq(vendors.id, id));
-  await logActivity(auth.user.name, "Hapus Vendor", `${existing.name} (${existing.code})`);
+  await logActivity(auth.user.name, "Hapus Vendor", `${existing.name} (${existing.id})`);
   return NextResponse.json({ message: "Vendor berhasil dihapus" });
 }

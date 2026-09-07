@@ -15,7 +15,7 @@ async function seedVoucherNumbers(voucherNumbers: string[]) {
   if (voucherNumbers.length === 0) return;
   await db.insert(paymentVouchers).values(
     voucherNumbers.map((voucherNumber) => ({
-      voucherNumber,
+      id: voucherNumber,
       direction: "out" as const,
       date: new Date("2099-07-25"),
       senderBank: "Test",

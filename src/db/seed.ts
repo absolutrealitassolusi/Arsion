@@ -64,7 +64,6 @@ async function main() {
   for (const vendor of dummyVendors) {
     const values = {
       name: vendor.name,
-      code: vendor.code,
       npwp: vendor.npwp,
       phone: vendor.phone,
       address: vendor.address,
@@ -75,15 +74,14 @@ async function main() {
     };
     await db
       .insert(vendors)
-      .values(values)
-      .onConflictDoUpdate({ target: vendors.code, set: values });
+      .values({ id: vendor.code, ...values })
+      .onConflictDoUpdate({ target: vendors.id, set: values });
   }
 
   console.log("Seeding customers...");
   for (const customer of dummyCustomers) {
     const values = {
       name: customer.name,
-      code: customer.code,
       npwp: customer.npwp,
       email: customer.email,
       phone: customer.phone,
@@ -92,15 +90,14 @@ async function main() {
     };
     await db
       .insert(customers)
-      .values(values)
-      .onConflictDoUpdate({ target: customers.code, set: values });
+      .values({ id: customer.code, ...values })
+      .onConflictDoUpdate({ target: customers.id, set: values });
   }
 
   console.log("Seeding projects...");
   for (const project of dummyProjects) {
     const values = {
       name: project.name,
-      code: project.code,
       description: project.description,
       clientName: project.clientName,
       picName: project.picName,
@@ -110,8 +107,8 @@ async function main() {
     };
     await db
       .insert(projects)
-      .values(values)
-      .onConflictDoUpdate({ target: projects.code, set: values });
+      .values({ id: project.code, ...values })
+      .onConflictDoUpdate({ target: projects.id, set: values });
   }
 
   console.log("Seeding payment vouchers...");
@@ -153,8 +150,8 @@ async function main() {
     };
     await db
       .insert(paymentVouchers)
-      .values({ voucherNumber: voucher.voucherNumber, ...shared })
-      .onConflictDoUpdate({ target: paymentVouchers.voucherNumber, set: shared });
+      .values({ id: voucher.voucherNumber, ...shared })
+      .onConflictDoUpdate({ target: paymentVouchers.id, set: shared });
   }
 
   console.log("Seeding invoices...");

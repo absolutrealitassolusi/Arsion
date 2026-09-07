@@ -9,7 +9,6 @@ import type {
 
 interface PrismaPaymentVoucher {
   id: string;
-  voucherNumber: string;
   direction: PvDirection;
   date: Date;
   senderBank: string;
@@ -56,7 +55,10 @@ const urlsOrNull = (urls: string[]) => (urls.length > 0 ? urls : null);
 export function serializePaymentVoucher(voucher: PrismaPaymentVoucher): ApiPaymentVoucher {
   return {
     id: voucher.id,
-    voucherNumber: voucher.voucherNumber,
+    // Primary key = voucherNumber (lihat src/db/schema.ts) - dua field API
+    // ini sengaja selalu identik, dipertahankan terpisah biar frontend gak
+    // perlu berubah.
+    voucherNumber: voucher.id,
     direction: voucher.direction,
     date: voucher.date.toISOString().slice(0, 10),
     senderBank: voucher.senderBank,

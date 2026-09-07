@@ -3,7 +3,6 @@ import type { Customer as ApiCustomer, CustomerStatus } from "@/types/customer";
 interface PrismaCustomer {
   id: string;
   name: string;
-  code: string;
   npwp: string;
   email: string;
   phone: string | null;
@@ -16,7 +15,9 @@ export function serializeCustomer(customer: PrismaCustomer): ApiCustomer {
   return {
     id: customer.id,
     name: customer.name,
-    code: customer.code,
+    // Primary key = code (lihat src/db/schema.ts) - dua field API ini sengaja
+    // selalu identik, dipertahankan terpisah biar frontend gak perlu berubah.
+    code: customer.id,
     npwp: customer.npwp,
     email: customer.email,
     phone: customer.phone ?? undefined,

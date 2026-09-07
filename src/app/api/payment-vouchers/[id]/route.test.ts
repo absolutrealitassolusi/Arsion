@@ -79,7 +79,7 @@ async function seedVoucher(overrides: Partial<typeof paymentVouchers.$inferInser
   const [voucher] = await db
     .insert(paymentVouchers)
     .values({
-      voucherNumber: `TEST${Date.now()}${Math.floor(Math.random() * 1000)}`,
+      id: `TEST${Date.now()}${Math.floor(Math.random() * 1000)}`,
       direction: "out",
       date: new Date("2026-08-07"),
       senderBank: "BRI - Rekening Operasional",

@@ -46,14 +46,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const [codeTaken] = await db
     .select()
     .from(customers)
-    .where(and(eq(customers.code, parsed.data.code), ne(customers.id, id)))
+    .where(and(eq(customers.id, parsed.data.code), ne(customers.id, id)))
     .limit(1);
   if (codeTaken) {
     return NextResponse.json({ message: "Kode customer sudah dipakai." }, { status: 409 });
   }
 
-  const [customer] = await db.update(customers).set(parsed.data).where(eq(customers.id, id)).returning();
-  await logActivity(auth.user.name, "Edit Customer", `${customer!.name} (${customer!.code})`);
+  const { code, ...rest } = parsed.data;
+  const [customer] = await db.update(customers).set({ ...rest, id: code }).where(eq(customers.id, id)).returning();
+  await logActivity(auth.user.name, "Edit Customer", `${customer!.name} (${customer!.id})`);
   return NextResponse.json({ data: serializeCustomer(customer!) });
 }
 
@@ -68,6 +69,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   await db.delete(customers).where(eq(customers.id, id));
-  await logActivity(auth.user.name, "Hapus Customer", `${existing.name} (${existing.code})`);
+  await logActivity(auth.user.name, "Hapus Customer", `${existing.name} (${existing.id})`);
   return NextResponse.json({ message: "Customer berhasil dihapus" });
 }

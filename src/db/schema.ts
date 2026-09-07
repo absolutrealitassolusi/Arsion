@@ -62,9 +62,11 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
 }));
 
 export const vendors = pgTable("Vendor", {
-  id: text("id").primaryKey().$defaultFn(() => createId()),
+  // Primary key = kode vendor itu sendiri (bukan cuid random) - lihat plan
+  // "Primary key dari code/nomor". Diisi eksplisit dari `code` pas create,
+  // ikut berubah pas `code` diedit (lihat PUT /api/vendors/[id]).
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
-  code: text("code").notNull().unique(),
   npwp: text("npwp").notNull(),
   phone: text("phone"),
   address: text("address").notNull(),
@@ -77,9 +79,9 @@ export const vendors = pgTable("Vendor", {
 });
 
 export const customers = pgTable("Customer", {
-  id: text("id").primaryKey().$defaultFn(() => createId()),
+  // Primary key = kode customer itu sendiri - sama pola-nya kaya vendors.id di atas.
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
-  code: text("code").notNull().unique(),
   npwp: text("npwp").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -90,9 +92,9 @@ export const customers = pgTable("Customer", {
 });
 
 export const projects = pgTable("Project", {
-  id: text("id").primaryKey().$defaultFn(() => createId()),
+  // Primary key = kode project itu sendiri - sama pola-nya kaya vendors.id di atas.
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
-  code: text("code").notNull().unique(),
   description: text("description"),
   clientName: text("clientName"),
   picName: text("picName"),
@@ -104,8 +106,10 @@ export const projects = pgTable("Project", {
 });
 
 export const paymentVouchers = pgTable("PaymentVoucher", {
-  id: text("id").primaryKey().$defaultFn(() => createId()),
-  voucherNumber: text("voucherNumber").notNull().unique(),
+  // Primary key = voucherNumber itu sendiri - lebih aman dari Vendor/Customer/
+  // Project karena voucherNumber TERBUKTI immutable setelah dibuat (PUT PV
+  // gak pernah nulis ulang field ini, lihat plan "Primary key dari code/nomor").
+  id: text("id").primaryKey(),
   direction: pvDirectionEnum("direction").notNull(),
   date: timestamp("date").notNull(),
   senderBank: text("senderBank").notNull(),

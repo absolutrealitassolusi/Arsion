@@ -21,7 +21,7 @@ async function seedVoucher(overrides: Partial<typeof paymentVouchers.$inferInser
   const [voucher] = await db
     .insert(paymentVouchers)
     .values({
-      voucherNumber: `TEST${Date.now()}${Math.floor(Math.random() * 1000)}`,
+      id: `TEST${Date.now()}${Math.floor(Math.random() * 1000)}`,
       direction: "out",
       date: new Date("2026-08-07"),
       senderBank: "BRI - Rekening Operasional",
@@ -104,7 +104,7 @@ describe("transitionPaymentVoucher", () => {
     const [notif] = await db
       .select()
       .from(notifications)
-      .where(eq(notifications.description, `${voucher.voucherNumber} (${TEST_PARTY}) menunggu approval.`))
+      .where(eq(notifications.description, `${voucher.id} (${TEST_PARTY}) menunggu approval.`))
       .limit(1);
     expect(notif).toBeDefined();
     expect(notif!.title).toBe("Payment Voucher diajukan");
@@ -156,7 +156,7 @@ describe("transitionPaymentVoucher", () => {
       .where(
         eq(
           notifications.description,
-          `${voucher.voucherNumber} (${TEST_PARTY}) ditolak oleh Dina Pratiwi - Dokumen kurang lengkap.`
+          `${voucher.id} (${TEST_PARTY}) ditolak oleh Dina Pratiwi - Dokumen kurang lengkap.`
         )
       )
       .limit(1);
@@ -181,7 +181,7 @@ describe("transitionPaymentVoucher", () => {
       .select()
       .from(notifications)
       .where(
-        eq(notifications.description, `${voucher.voucherNumber} (${TEST_PARTY}) ditandai sudah dibayar oleh Dina Pratiwi.`)
+        eq(notifications.description, `${voucher.id} (${TEST_PARTY}) ditandai sudah dibayar oleh Dina Pratiwi.`)
       )
       .limit(1);
     expect(notif).toBeDefined();

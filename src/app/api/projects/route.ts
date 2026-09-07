@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const rows = await db
     .select()
     .from(projects)
-    .where(search ? or(ilike(projects.name, `%${search}%`), ilike(projects.code, `%${search}%`)) : undefined)
+    .where(search ? or(ilike(projects.name, `%${search}%`), ilike(projects.id, `%${search}%`)) : undefined)
     .orderBy(desc(projects.createdAt));
 
   const data = rows.map(serializeProject);
@@ -38,19 +38,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const [existing] = await db.select().from(projects).where(eq(projects.code, parsed.data.code)).limit(1);
+  const [existing] = await db.select().from(projects).where(eq(projects.id, parsed.data.code)).limit(1);
   if (existing) {
     return NextResponse.json({ message: "Kode project sudah dipakai." }, { status: 409 });
   }
 
+  const { code, ...rest } = parsed.data;
   const [project] = await db
     .insert(projects)
     .values({
-      ...parsed.data,
+      ...rest,
+      id: code,
       startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
     })
     .returning();
-  await logActivity(auth.user.name, "Tambah Project", `${project!.name} (${project!.code})`);
+  await logActivity(auth.user.name, "Tambah Project", `${project!.name} (${project!.id})`);
   return NextResponse.json({ data: serializeProject(project!) }, { status: 201 });
 }

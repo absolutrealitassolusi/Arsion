@@ -3,7 +3,6 @@ import type { Vendor as ApiVendor, VendorStatus } from "@/types/vendor";
 interface PrismaVendor {
   id: string;
   name: string;
-  code: string;
   npwp: string;
   phone: string | null;
   address: string;
@@ -18,7 +17,9 @@ export function serializeVendor(vendor: PrismaVendor): ApiVendor {
   return {
     id: vendor.id,
     name: vendor.name,
-    code: vendor.code,
+    // Primary key = code (lihat src/db/schema.ts) - dua field API ini sengaja
+    // selalu identik, dipertahankan terpisah biar frontend gak perlu berubah.
+    code: vendor.id,
     npwp: vendor.npwp,
     phone: vendor.phone ?? undefined,
     address: vendor.address,

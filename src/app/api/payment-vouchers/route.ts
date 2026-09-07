@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     direction ? eq(paymentVouchers.direction, direction) : undefined,
     status ? eq(paymentVouchers.status, status) : undefined,
     search
-      ? or(ilike(paymentVouchers.voucherNumber, `%${search}%`), ilike(paymentVouchers.partyName, `%${search}%`))
+      ? or(ilike(paymentVouchers.id, `%${search}%`), ilike(paymentVouchers.partyName, `%${search}%`))
       : undefined,
   ].filter((c) => c !== undefined);
 
@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
   const rows = await db
     .select({
       id: paymentVouchers.id,
-      voucherNumber: paymentVouchers.voucherNumber,
       direction: paymentVouchers.direction,
       date: paymentVouchers.date,
       senderBank: paymentVouchers.senderBank,
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
     const [created] = await tx
       .insert(paymentVouchers)
       .values({
-        voucherNumber,
+        id: voucherNumber,
         direction: payload.direction,
         date: new Date(payload.date),
         senderBank: payload.senderBank,
@@ -151,7 +150,7 @@ export async function POST(request: NextRequest) {
     return created!;
   });
 
-  await logActivity(auth.user.name, "Buat PV", `${voucher.voucherNumber} (${voucher.partyName})`);
+  await logActivity(auth.user.name, "Buat PV", `${voucher.id} (${voucher.partyName})`);
 
   return NextResponse.json({ data: serializePaymentVoucher(voucher) }, { status: 201 });
 }

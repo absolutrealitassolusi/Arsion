@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const rows = await db
     .select()
     .from(customers)
-    .where(search ? or(ilike(customers.name, `%${search}%`), ilike(customers.code, `%${search}%`)) : undefined)
+    .where(search ? or(ilike(customers.name, `%${search}%`), ilike(customers.id, `%${search}%`)) : undefined)
     .orderBy(desc(customers.createdAt));
 
   const data = rows.map(serializeCustomer);
@@ -38,12 +38,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const [existing] = await db.select().from(customers).where(eq(customers.code, parsed.data.code)).limit(1);
+  const [existing] = await db.select().from(customers).where(eq(customers.id, parsed.data.code)).limit(1);
   if (existing) {
     return NextResponse.json({ message: "Kode customer sudah dipakai." }, { status: 409 });
   }
 
-  const [customer] = await db.insert(customers).values(parsed.data).returning();
-  await logActivity(auth.user.name, "Tambah Customer", `${customer!.name} (${customer!.code})`);
+  const { code, ...rest } = parsed.data;
+  const [customer] = await db.insert(customers).values({ ...rest, id: code }).returning();
+  await logActivity(auth.user.name, "Tambah Customer", `${customer!.name} (${customer!.id})`);
   return NextResponse.json({ data: serializeCustomer(customer!) }, { status: 201 });
 }

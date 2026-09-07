@@ -21,12 +21,14 @@ export async function nextVoucherNumber(
   dateStr: string
 ): Promise<string> {
   const prefix = `${periodKeyFromDate(dateStr)}45`;
+  // voucherNumber = id (lihat src/db/schema.ts, plan "Primary key dari
+  // code/nomor") - scan kolom id, bukan kolom voucherNumber terpisah lagi.
   const existing = await tx
-    .select({ voucherNumber: paymentVouchers.voucherNumber })
+    .select({ id: paymentVouchers.id })
     .from(paymentVouchers)
-    .where(like(paymentVouchers.voucherNumber, `${prefix}%`));
+    .where(like(paymentVouchers.id, `${prefix}%`));
   const maxSeq = existing.reduce(
-    (max, v) => Math.max(max, Number(v.voucherNumber.slice(prefix.length)) || 0),
+    (max, v) => Math.max(max, Number(v.id.slice(prefix.length)) || 0),
     0
   );
   return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;

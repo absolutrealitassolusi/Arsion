@@ -34,14 +34,14 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await db.delete(vendors).where(ilike(vendors.code, `${TEST_PREFIX}%`));
+  await db.delete(vendors).where(ilike(vendors.id, `${TEST_PREFIX}%`));
 });
 
 describe("GET /api/vendors", () => {
   it("tanpa query search, balikin vendor yang ada", async () => {
     await db.insert(vendors).values({
       name: "PT Sumber Makmur",
-      code: `${TEST_PREFIX}001`,
+      id: `${TEST_PREFIX}001`,
       npwp: "123",
       address: "Jl. A",
       bankName: "BCA",
@@ -59,7 +59,7 @@ describe("GET /api/vendors", () => {
     await db.insert(vendors).values([
       {
         name: "PT Sumber Makmur",
-        code: `${TEST_PREFIX}002`,
+        id: `${TEST_PREFIX}002`,
         npwp: "123",
         address: "Jl. A",
         bankName: "BCA",
@@ -68,7 +68,7 @@ describe("GET /api/vendors", () => {
       },
       {
         name: "CV Cipta Karya",
-        code: `${TEST_PREFIX}003`,
+        id: `${TEST_PREFIX}003`,
         npwp: "456",
         address: "Jl. B",
         bankName: "BNI",
@@ -88,7 +88,7 @@ describe("GET /api/vendors", () => {
   it("balikin total sesuai jumlah data yang ketemu", async () => {
     await db.insert(vendors).values({
       name: "PT Unique Total Test",
-      code: `${TEST_PREFIX}004`,
+      id: `${TEST_PREFIX}004`,
       npwp: "789",
       address: "Jl. C",
       bankName: "Mandiri",
