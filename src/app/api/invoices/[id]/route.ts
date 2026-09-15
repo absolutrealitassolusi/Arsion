@@ -60,6 +60,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       items: payload.items,
       ppnPercent: payload.ppnPercent,
       ...totals,
+      poContractNo: payload.poContractNo || null,
+      deliveredTo: payload.deliveredTo || null,
+      paidToBankName: payload.paidToBankName || null,
+      paidToAccountNumber: payload.paidToAccountNumber || null,
+      paidToAccountName: payload.paidToAccountName || null,
       notes: payload.notes || null,
     })
     .where(eq(invoices.id, id))

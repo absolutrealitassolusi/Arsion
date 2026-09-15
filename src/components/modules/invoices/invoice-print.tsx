@@ -84,13 +84,29 @@ export function InvoicePrint({ invoice, mode = "print" }: InvoicePrintProps) {
               </tr>
               <tr>
                 <td className="w-1/2 border border-gray-400 bg-gray-200 px-2 py-1 text-right font-black">
-                  Ditagihkan kepada :
+                  PO/Contract No :
                 </td>
-                <td className="w-1/2 border border-gray-400 px-2 py-1 text-right">{invoice.customerName}</td>
+                <td className="w-1/2 border border-gray-400 px-2 py-1 text-right">
+                  {invoice.poContractNo ?? "-"}
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Sold To / Delivered To */}
+      <div className="mt-4 grid grid-cols-2 gap-3 text-[10px]">
+        <div className="border border-gray-400 p-2">
+          <p className="font-black uppercase">Sold To</p>
+          <p className="mt-1">{invoice.customerName}</p>
+        </div>
+        {invoice.deliveredTo && (
+          <div className="border border-gray-400 p-2">
+            <p className="font-black uppercase">Delivered To</p>
+            <p className="mt-1 whitespace-pre-line">{invoice.deliveredTo}</p>
+          </div>
+        )}
       </div>
 
       {/* Tabel rincian */}
@@ -98,6 +114,7 @@ export function InvoicePrint({ invoice, mode = "print" }: InvoicePrintProps) {
         <thead>
           <tr>
             <th className="w-12 border border-gray-400 bg-gray-200 px-2 py-1 font-black uppercase">No.</th>
+            <th className="w-24 border border-gray-400 bg-gray-200 px-2 py-1 font-black uppercase">Item Code</th>
             <th className="border border-gray-400 bg-gray-200 px-2 py-1 font-black uppercase">Keterangan</th>
             <th className="w-16 border border-gray-400 bg-gray-200 px-2 py-1 font-black uppercase">Qty</th>
             <th className="w-28 border border-gray-400 bg-gray-200 px-2 py-1 font-black uppercase">Harga Satuan</th>
@@ -108,6 +125,7 @@ export function InvoicePrint({ invoice, mode = "print" }: InvoicePrintProps) {
           {invoice.items.map((item, index) => (
             <tr key={index}>
               <td className="border border-gray-400 px-2 py-1 text-center">{index + 1}</td>
+              <td className="border border-gray-400 px-2 py-1">{item.itemCode ?? "-"}</td>
               <td className="border border-gray-400 px-2 py-1">{item.description}</td>
               <td className="border border-gray-400 px-2 py-1 text-center">{item.qty}</td>
               <td className="border border-gray-400 px-2 py-1 text-right">{formatNumber(item.unitPrice)}</td>
@@ -116,28 +134,55 @@ export function InvoicePrint({ invoice, mode = "print" }: InvoicePrintProps) {
               </td>
             </tr>
           ))}
-          <tr>
-            <td colSpan={4} className="border border-gray-400 px-2 py-1 text-right">
-              Subtotal
-            </td>
-            <td className="border border-gray-400 px-2 py-1 text-right">{formatNumber(invoice.subtotal)}</td>
-          </tr>
-          <tr>
-            <td colSpan={4} className="border border-gray-400 px-2 py-1 text-right">
-              PPN ({invoice.ppnPercent}%)
-            </td>
-            <td className="border border-gray-400 px-2 py-1 text-right">{formatNumber(invoice.ppnAmount)}</td>
-          </tr>
-          <tr>
-            <td colSpan={4} className="border border-gray-400 border-t-2 px-2 py-1 text-right font-black">
-              Total
-            </td>
-            <td className="border border-gray-400 border-t-2 px-2 py-1 text-right font-black">
-              {formatNumber(invoice.totalAmount)}
-            </td>
-          </tr>
         </tbody>
       </table>
+
+      {/* Catatan baku + info bank (kiri) & rekap total (kanan) */}
+      <div className="mt-3 grid grid-cols-2 gap-3 text-[10px]">
+        <div className="space-y-3">
+          <div className="border border-gray-400 p-2">
+            <p className="font-black uppercase">Important Notes</p>
+            <p className="mt-1">
+              In case of any discrepancies, please notify us within 7 (seven) days upon receiving this invoice.
+            </p>
+          </div>
+          {(invoice.paidToBankName || invoice.paidToAccountNumber || invoice.paidToAccountName) && (
+            <div className="border border-gray-400 p-2">
+              <p className="font-black uppercase">Paid To</p>
+              <p className="mt-1">
+                {invoice.paidToAccountNumber ?? "-"} - {invoice.paidToAccountName ?? "-"}
+                <br />
+                {invoice.paidToBankName ?? "-"}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <table className="ml-auto h-fit w-full table-fixed border-collapse border border-gray-400">
+          <tbody>
+            <tr>
+              <td className="w-1/2 border border-gray-400 bg-gray-200 px-2 py-1 text-right font-black">
+                Sub Total
+              </td>
+              <td className="w-1/2 border border-gray-400 px-2 py-1 text-right">{formatNumber(invoice.subtotal)}</td>
+            </tr>
+            <tr>
+              <td className="border border-gray-400 bg-gray-200 px-2 py-1 text-right font-black">
+                PPN ({invoice.ppnPercent}%)
+              </td>
+              <td className="border border-gray-400 px-2 py-1 text-right">{formatNumber(invoice.ppnAmount)}</td>
+            </tr>
+            <tr>
+              <td className="border border-gray-400 border-t-2 bg-gray-200 px-2 py-1 text-right font-black">
+                Total
+              </td>
+              <td className="border border-gray-400 border-t-2 px-2 py-1 text-right font-black">
+                {formatNumber(invoice.totalAmount)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       {/* Terbilang */}
       <div className="mt-3 border border-gray-400 p-2 text-[10px]">

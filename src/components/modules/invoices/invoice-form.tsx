@@ -22,7 +22,7 @@ import { useCreateInvoice, useUpdateInvoice } from "@/hooks/use-invoices";
 import { calculateInvoiceTotals, type Invoice, type InvoicePayload } from "@/types/invoice";
 import { formatCurrency } from "@/lib/utils";
 
-const emptyItem = { description: "", qty: 1, unitPrice: 0 };
+const emptyItem = { itemCode: "", description: "", qty: 1, unitPrice: 0 };
 
 interface InvoiceFormProps {
   /** Kalau diisi, form ini jadi mode edit - cuma boleh buat Invoice berstatus Draft (lihat PUT /api/invoices/[id]). */
@@ -49,6 +49,11 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
           dueDate: editInvoice.dueDate,
           items: editInvoice.items,
           ppnPercent: editInvoice.ppnPercent,
+          poContractNo: editInvoice.poContractNo,
+          deliveredTo: editInvoice.deliveredTo,
+          paidToBankName: editInvoice.paidToBankName,
+          paidToAccountNumber: editInvoice.paidToAccountNumber,
+          paidToAccountName: editInvoice.paidToAccountName,
           notes: editInvoice.notes,
         }
       : {
@@ -57,6 +62,11 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
           dueDate: new Date().toISOString().slice(0, 10),
           items: [emptyItem],
           ppnPercent: 11,
+          poContractNo: "",
+          deliveredTo: "",
+          paidToBankName: "",
+          paidToAccountNumber: "",
+          paidToAccountName: "",
           notes: "",
         },
   });
@@ -70,6 +80,11 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
 
   const buildPayload = (values: InvoiceFormValues): InvoicePayload => ({
     ...values,
+    poContractNo: values.poContractNo || null,
+    deliveredTo: values.deliveredTo || null,
+    paidToBankName: values.paidToBankName || null,
+    paidToAccountNumber: values.paidToAccountNumber || null,
+    paidToAccountName: values.paidToAccountName || null,
     notes: values.notes || null,
   });
 
@@ -113,6 +128,22 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
             error={errors.dueDate?.message}
             {...register("dueDate")}
           />
+
+          <FormField
+            id="poContractNo"
+            label="PO/Contract No (Opsional)"
+            placeholder="PROC.007/TN/TNG/LPPNPI/PGD.02.02/VII/2026"
+            error={errors.poContractNo?.message}
+            {...register("poContractNo")}
+          />
+
+          <FormField
+            id="deliveredTo"
+            label="Delivered To (Opsional)"
+            placeholder="Alamat pengiriman, kalau beda dari nama customer"
+            error={errors.deliveredTo?.message}
+            {...register("deliveredTo")}
+          />
         </CardContent>
       </Card>
 
@@ -132,6 +163,7 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">#</TableHead>
+                <TableHead className="w-28">Item Code</TableHead>
                 <TableHead>Keterangan</TableHead>
                 <TableHead className="w-20">Qty</TableHead>
                 <TableHead className="w-36">Harga Satuan</TableHead>
@@ -146,6 +178,9 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
                 return (
                   <TableRow key={field.id}>
                     <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell>
+                      <Input placeholder="Opsional" {...register(`items.${index}.itemCode`)} />
+                    </TableCell>
                     <TableCell>
                       <Input placeholder="Keterangan item..." {...register(`items.${index}.description`)} />
                       {errors.items?.[index]?.description && (
@@ -215,6 +250,35 @@ export function InvoiceForm({ editInvoice }: InvoiceFormProps) {
             placeholder="Contoh: Pembayaran ditransfer ke rekening perusahaan"
             error={errors.notes?.message}
             {...register("notes")}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Info Rekening Penerima (Opsional)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <FormField
+            id="paidToBankName"
+            label="Nama Bank"
+            placeholder="BANK OCBC NISP"
+            error={errors.paidToBankName?.message}
+            {...register("paidToBankName")}
+          />
+          <FormField
+            id="paidToAccountNumber"
+            label="Nomor Rekening"
+            placeholder="566800010811"
+            error={errors.paidToAccountNumber?.message}
+            {...register("paidToAccountNumber")}
+          />
+          <FormField
+            id="paidToAccountName"
+            label="Nama Pemilik Rekening"
+            placeholder="PT Absolut Realitas Solusi"
+            error={errors.paidToAccountName?.message}
+            {...register("paidToAccountName")}
           />
         </CardContent>
       </Card>

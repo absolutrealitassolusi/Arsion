@@ -11,6 +11,11 @@ interface DbInvoice {
   subtotal: number;
   ppnAmount: number;
   totalAmount: number;
+  poContractNo: string | null;
+  deliveredTo: string | null;
+  paidToBankName: string | null;
+  paidToAccountNumber: string | null;
+  paidToAccountName: string | null;
   notes: string | null;
   status: InvoiceStatus;
   preparedBy: string;
@@ -35,6 +40,11 @@ export function serializeInvoice(invoice: DbInvoice): ApiInvoice {
     subtotal: invoice.subtotal,
     ppnAmount: invoice.ppnAmount,
     totalAmount: invoice.totalAmount,
+    poContractNo: invoice.poContractNo,
+    deliveredTo: invoice.deliveredTo,
+    paidToBankName: invoice.paidToBankName,
+    paidToAccountNumber: invoice.paidToAccountNumber,
+    paidToAccountName: invoice.paidToAccountName,
     notes: invoice.notes,
     status: invoice.status,
     isOverdue: invoice.status === "sent" && dueDateStr < today,

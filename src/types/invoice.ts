@@ -1,6 +1,7 @@
 export type InvoiceStatus = "draft" | "sent" | "paid";
 
 export interface InvoiceItem {
+  itemCode?: string;
   description: string;
   qty: number;
   unitPrice: number;
@@ -38,6 +39,15 @@ export interface Invoice {
   ppnAmount: number;
   totalAmount: number;
 
+  /** Nomor PO/Contract dari customer - dipakai buat referensi di cetakan. */
+  poContractNo: string | null;
+  /** Alamat pengiriman - "Sold To" di cetakan pakai customerName, "Delivered To" pakai field ini. */
+  deliveredTo: string | null;
+  /** Rekening PERUSAHAAN KITA (bukan rekening customer) buat blok "Paid To" di cetakan. */
+  paidToBankName: string | null;
+  paidToAccountNumber: string | null;
+  paidToAccountName: string | null;
+
   notes: string | null;
   status: InvoiceStatus;
   /** Belum lunas & sudah lewat tanggal jatuh tempo - dihitung, bukan status tersimpan (lihat src/lib/serialize-invoice.ts). */
@@ -52,7 +62,17 @@ export interface Invoice {
 
 export type InvoicePayload = Pick<
   Invoice,
-  "customerName" | "date" | "dueDate" | "items" | "ppnPercent" | "notes"
+  | "customerName"
+  | "date"
+  | "dueDate"
+  | "items"
+  | "ppnPercent"
+  | "poContractNo"
+  | "deliveredTo"
+  | "paidToBankName"
+  | "paidToAccountNumber"
+  | "paidToAccountName"
+  | "notes"
 >;
 
 export interface InvoiceListResponse {

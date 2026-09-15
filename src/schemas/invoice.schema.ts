@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const invoiceItemSchema = z.object({
+  itemCode: z.string().optional(),
   description: z.string().min(1, "Keterangan item wajib diisi"),
   qty: z.coerce.number({ invalid_type_error: "Qty harus berupa angka" }).positive("Qty harus lebih dari 0"),
   unitPrice: z.coerce
@@ -15,6 +16,11 @@ export const invoiceSchema = z
     dueDate: z.string().min(1, "Tanggal jatuh tempo wajib diisi"),
     items: z.array(invoiceItemSchema).min(1, "Minimal 1 item"),
     ppnPercent: z.coerce.number().min(0, "Minimal 0%").max(100, "Maksimal 100%"),
+    poContractNo: z.string().nullable().optional(),
+    deliveredTo: z.string().nullable().optional(),
+    paidToBankName: z.string().nullable().optional(),
+    paidToAccountNumber: z.string().nullable().optional(),
+    paidToAccountName: z.string().nullable().optional(),
     notes: z.string().nullable().optional(),
   })
   .refine((data) => data.dueDate >= data.date, {
