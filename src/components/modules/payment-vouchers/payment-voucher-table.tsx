@@ -163,12 +163,14 @@ export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
                             </Link>
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(voucher)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Hapus
-                        </DropdownMenuItem>
+                        {voucher.status === "draft" && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(voucher)}
+                          >
+                            <Trash2 className="h-4 w-4" /> Hapus
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

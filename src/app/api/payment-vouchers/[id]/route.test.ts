@@ -10,7 +10,7 @@ vi.mock("@/lib/api-auth", () => ({
 }));
 
 import { requirePermission } from "@/lib/api-auth";
-import { PUT } from "./route";
+import { PUT, DELETE } from "./route";
 
 const requirePermissionMock = vi.mocked(requirePermission);
 
@@ -194,5 +194,41 @@ describe("PUT /api/payment-vouchers/[id]", () => {
       by: "Dina Pratiwi",
       note: "PV yang ditolak diedit & disimpan ulang sebagai Draft",
     });
+  });
+});
+
+describe("DELETE /api/payment-vouchers/[id]", () => {
+  it("balikin 404 kalau voucher gak ketemu", async () => {
+    const res = await DELETE(new NextRequest("http://localhost/api/payment-vouchers/missing-id"), {
+      params: Promise.resolve({ id: "missing-id-does-not-exist" }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("balikin 400 & GAK ngehapus kalau status BUKAN draft (misal paid)", async () => {
+    const voucher = await seedVoucher({ status: "paid" });
+
+    const res = await DELETE(new NextRequest(`http://localhost/api/payment-vouchers/${voucher.id}`), {
+      params: Promise.resolve({ id: voucher.id }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { message: string };
+    expect(body.message).toBe("Cuma Payment Voucher berstatus Draft yang bisa dihapus.");
+    const [after] = await db.select().from(paymentVouchers).where(eq(paymentVouchers.id, voucher.id)).limit(1);
+    expect(after).toBeDefined();
+  });
+
+  it("sukses hapus kalau status draft", async () => {
+    const voucher = await seedVoucher({ status: "draft" });
+
+    const res = await DELETE(new NextRequest(`http://localhost/api/payment-vouchers/${voucher.id}`), {
+      params: Promise.resolve({ id: voucher.id }),
+    });
+
+    expect(res.status).toBe(200);
+    const [after] = await db.select().from(paymentVouchers).where(eq(paymentVouchers.id, voucher.id)).limit(1);
+    expect(after).toBeUndefined();
   });
 });

@@ -118,6 +118,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({ data: serializePaymentVoucher(updated!) });
 }
 
+// DELETE /payment-vouchers/:id - cuma boleh kalau statusnya masih Draft (dokumen
+// yang sudah diajukan/disetujui/dibayar wajib tetap ada buat audit trail).
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requirePermission(PERMISSIONS.PV_VIEW);
   if ("error" in auth) return auth.error;
@@ -126,6 +128,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const [existing] = await db.select().from(paymentVouchers).where(eq(paymentVouchers.id, id)).limit(1);
   if (!existing) {
     return NextResponse.json({ message: "Payment Voucher tidak ditemukan" }, { status: 404 });
+  }
+  if (existing.status !== "draft") {
+    return NextResponse.json({ message: "Cuma Payment Voucher berstatus Draft yang bisa dihapus." }, { status: 400 });
   }
 
   await db.delete(paymentVouchers).where(eq(paymentVouchers.id, id));
