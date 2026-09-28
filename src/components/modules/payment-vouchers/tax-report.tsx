@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Percent, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { Percent, TrendingUp, TrendingDown, Download, Printer } from "lucide-react";
+import { ReportPrintView } from "@/components/shared/report-print-view";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,31 +67,33 @@ export function TaxReport() {
     (v) => v.ppnAmount > 0 || v.pphJasaAmount > 0 || v.pphFreelanceAmount > 0
   );
 
-  const handleDownload = () => {
-    const workbook = buildReportWorkbook({
-      title: "Tax Report",
-      periodLabel: periodLabel(month),
-      summarySheet: {
-        headers: ["Ringkasan", "Total"],
-        rows: [
-          ["Total PPN Dipungut", totalPpn],
-          ["Total PPh 23 Dipotong", totalPphJasa],
-          ["Total PPh 21 Dipotong", totalPphFreelance],
-        ],
-      },
-      detailSheet: {
-        headers: ["No. PV", "Tanggal", "Vendor/Customer", "Faktur Pajak", "PPN", "PPh 23", "PPh 21"],
-        rows: taxedVouchers.map((v) => [
-          v.voucherNumber,
-          formatDate(v.date),
-          v.partyName,
-          v.taxInvoiceNumber ?? "-",
-          v.ppnAmount,
-          v.pphJasaAmount,
-          v.pphFreelanceAmount,
-        ]),
-      },
-    });
+  const reportData = {
+    title: "Tax Report",
+    periodLabel: periodLabel(month),
+    summarySheet: {
+      headers: ["Ringkasan", "Total"],
+      rows: [
+        ["Total PPN Dipungut", totalPpn],
+        ["Total PPh 23 Dipotong", totalPphJasa],
+        ["Total PPh 21 Dipotong", totalPphFreelance],
+      ],
+    },
+    detailSheet: {
+      headers: ["No. PV", "Tanggal", "Vendor/Customer", "Faktur Pajak", "PPN", "PPh 23", "PPh 21"],
+      rows: taxedVouchers.map((v) => [
+        v.voucherNumber,
+        formatDate(v.date),
+        v.partyName,
+        v.taxInvoiceNumber ?? "-",
+        v.ppnAmount,
+        v.pphJasaAmount,
+        v.pphFreelanceAmount,
+      ]),
+    },
+  };
+
+  const handleDownloadExcel = () => {
+    const workbook = buildReportWorkbook(reportData);
     void downloadWorkbook(workbook, `Tax-Report-${month || "semua-periode"}.xlsx`);
   };
 
@@ -106,6 +109,9 @@ export function TaxReport() {
 
   return (
     <div className="space-y-6">
+      <ReportPrintView {...reportData} />
+
+      <div className="space-y-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
         <Select value={status || "all"} onValueChange={(v) => setStatus(v === "all" ? "" : v)}>
@@ -121,9 +127,14 @@ export function TaxReport() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto" onClick={handleDownload}>
-          <Download className="h-4 w-4" /> Download Excel
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button variant="outline" onClick={handleDownloadExcel}>
+            <Download className="h-4 w-4" /> Download Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -172,6 +183,7 @@ export function TaxReport() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

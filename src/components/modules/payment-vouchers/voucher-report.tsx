@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Download, Inbox } from "lucide-react";
+import { Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Download, Printer, Inbox } from "lucide-react";
+import { ReportPrintView } from "@/components/shared/report-print-view";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,26 +71,28 @@ export function VoucherReport() {
     return { status: s, count: list.length, total: list.reduce((sum, v) => sum + v.totalAmount, 0) };
   });
 
-  const handleDownload = () => {
-    const workbook = buildReportWorkbook({
-      title: "Voucher Report",
-      periodLabel: periodLabel(month),
-      summarySheet: {
-        headers: ["Status", "Jumlah PV", "Total Nilai"],
-        rows: byStatus.map((row) => [statusMap[row.status].label, row.count, row.total]),
-      },
-      detailSheet: {
-        headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total", "Status"],
-        rows: vouchers.map((v) => [
-          v.voucherNumber,
-          formatDate(v.date),
-          v.direction === "in" ? "In" : "Out",
-          v.partyName,
-          v.totalAmount,
-          statusMap[v.status].label,
-        ]),
-      },
-    });
+  const reportData = {
+    title: "Voucher Report",
+    periodLabel: periodLabel(month),
+    summarySheet: {
+      headers: ["Status", "Jumlah PV", "Total Nilai"],
+      rows: byStatus.map((row) => [statusMap[row.status].label, row.count, row.total]),
+    },
+    detailSheet: {
+      headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total", "Status"],
+      rows: vouchers.map((v) => [
+        v.voucherNumber,
+        formatDate(v.date),
+        v.direction === "in" ? "In" : "Out",
+        v.partyName,
+        v.totalAmount,
+        statusMap[v.status].label,
+      ]),
+    },
+  };
+
+  const handleDownloadExcel = () => {
+    const workbook = buildReportWorkbook(reportData);
     void downloadWorkbook(workbook, `Voucher-Report-${month || "semua-periode"}.xlsx`);
   };
 
@@ -105,6 +108,9 @@ export function VoucherReport() {
 
   return (
     <div className="space-y-6">
+      <ReportPrintView {...reportData} />
+
+      <div className="space-y-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
         <Select value={status || "all"} onValueChange={(v) => setStatus(v === "all" ? "" : v)}>
@@ -120,9 +126,14 @@ export function VoucherReport() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto" onClick={handleDownload}>
-          <Download className="h-4 w-4" /> Download Excel
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button variant="outline" onClick={handleDownloadExcel}>
+            <Download className="h-4 w-4" /> Download Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -209,6 +220,7 @@ export function VoucherReport() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

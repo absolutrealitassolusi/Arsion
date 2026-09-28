@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Scale, Download, Inbox } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Scale, Download, Printer, Inbox } from "lucide-react";
+import { ReportPrintView } from "@/components/shared/report-print-view";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,29 +47,31 @@ export function CashFlowReport() {
   const net = cashIn - cashOut;
   const maxValue = Math.max(cashIn, cashOut, 1);
 
-  const handleDownload = () => {
-    const workbook = buildReportWorkbook({
-      title: "Cash Flow Report",
-      periodLabel: periodLabel(month),
-      summarySheet: {
-        headers: ["Ringkasan", "Total"],
-        rows: [
-          ["Total Uang Masuk", cashIn],
-          ["Total Uang Keluar", cashOut],
-          ["Arus Kas Bersih", net],
-        ],
-      },
-      detailSheet: {
-        headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total"],
-        rows: vouchers.map((v) => [
-          v.voucherNumber,
-          formatDate(v.date),
-          v.direction === "in" ? "In" : "Out",
-          v.partyName,
-          v.totalAmount,
-        ]),
-      },
-    });
+  const reportData = {
+    title: "Cash Flow Report",
+    periodLabel: periodLabel(month),
+    summarySheet: {
+      headers: ["Ringkasan", "Total"],
+      rows: [
+        ["Total Uang Masuk", cashIn],
+        ["Total Uang Keluar", cashOut],
+        ["Arus Kas Bersih", net],
+      ],
+    },
+    detailSheet: {
+      headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total"],
+      rows: vouchers.map((v) => [
+        v.voucherNumber,
+        formatDate(v.date),
+        v.direction === "in" ? "In" : "Out",
+        v.partyName,
+        v.totalAmount,
+      ]),
+    },
+  };
+
+  const handleDownloadExcel = () => {
+    const workbook = buildReportWorkbook(reportData);
     void downloadWorkbook(workbook, `Cash-Flow-Report-${month || "semua-periode"}.xlsx`);
   };
 
@@ -84,11 +87,19 @@ export function CashFlowReport() {
 
   return (
     <div className="space-y-6">
+      <ReportPrintView {...reportData} />
+
+      <div className="space-y-6 print:hidden">
       <div className="flex flex-wrap items-center gap-2">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
-        <Button variant="outline" className="ml-auto" onClick={handleDownload}>
-          <Download className="h-4 w-4" /> Download Excel
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button variant="outline" onClick={handleDownloadExcel}>
+            <Download className="h-4 w-4" /> Download Excel
+          </Button>
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -183,6 +194,7 @@ export function CashFlowReport() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
