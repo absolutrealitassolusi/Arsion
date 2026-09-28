@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MoreHorizontal, Eye, Trash2, Receipt } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Receipt } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { usePaymentVouchers, useDeletePaymentVoucher } from "@/hooks/use-payment-vouchers";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { PaymentVoucher, PvDirection, PvStatus } from "@/types/payment-voucher";
 
@@ -51,6 +52,7 @@ export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
   const [deleteTarget, setDeleteTarget] = useState<PaymentVoucher | null>(null);
 
   const basePath = direction === "in" ? "/finance/pv/pv-in" : "/finance/pv/pv-out";
+  const currentUser = useCurrentUser();
 
   const { data, isLoading, isError, error } = usePaymentVouchers({
     direction,
@@ -126,6 +128,8 @@ export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
 
             {data?.data.map((voucher) => {
               const st = statusMap[voucher.status];
+              const isOwnVoucher = voucher.preparedBy === currentUser.name;
+              const canEdit = (voucher.status === "draft" || voucher.status === "rejected") && isOwnVoucher;
               return (
                 <TableRow key={voucher.id}>
                   <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
@@ -151,6 +155,14 @@ export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
                             <Eye className="h-4 w-4" /> Lihat
                           </Link>
                         </DropdownMenuItem>
+                        {canEdit && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`${basePath}/${voucher.id}/edit`}>
+                              <Pencil className="h-4 w-4" />
+                              {voucher.status === "rejected" ? "Edit & Ajukan Ulang" : "Edit PV"}
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={() => setDeleteTarget(voucher)}
