@@ -1,23 +1,76 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, Scale } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowDownLeft, ArrowUpRight, Scale, Download, Inbox } from "lucide-react";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 import { usePaymentVouchers } from "@/hooks/use-payment-vouchers";
-import { cn, formatCurrency } from "@/lib/utils";
+import { buildReportWorkbook, downloadWorkbook } from "@/lib/export-excel";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+
+function currentMonthValue() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function periodLabel(month: string) {
+  if (!month) return "Semua Periode";
+  const [year, m] = month.split("-");
+  const date = new Date(Number(year), Number(m) - 1, 1);
+  return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+}
 
 /**
  * Cuma hitung PV yang statusnya "paid" - PV yang masih Draft/Menunggu
  * Approval belum benar-benar jadi arus kas, jadi gak masuk hitungan.
  */
 export function CashFlowReport() {
+  const [month, setMonth] = useState(currentMonthValue());
   const { data, isLoading } = usePaymentVouchers({ status: "paid" });
-  const vouchers = data?.data ?? [];
+
+  const vouchers = useMemo(() => {
+    return (data?.data ?? []).filter((v) => !month || v.date.startsWith(month));
+  }, [data, month]);
 
   const cashIn = vouchers.filter((v) => v.direction === "in").reduce((sum, v) => sum + v.totalAmount, 0);
   const cashOut = vouchers.filter((v) => v.direction === "out").reduce((sum, v) => sum + v.totalAmount, 0);
   const net = cashIn - cashOut;
   const maxValue = Math.max(cashIn, cashOut, 1);
+
+  const handleDownload = () => {
+    const workbook = buildReportWorkbook({
+      title: "Cash Flow Report",
+      periodLabel: periodLabel(month),
+      summarySheet: {
+        headers: ["Ringkasan", "Total"],
+        rows: [
+          ["Total Uang Masuk", cashIn],
+          ["Total Uang Keluar", cashOut],
+          ["Arus Kas Bersih", net],
+        ],
+      },
+      detailSheet: {
+        headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total"],
+        rows: vouchers.map((v) => [
+          v.voucherNumber,
+          formatDate(v.date),
+          v.direction === "in" ? "In" : "Out",
+          v.partyName,
+          v.totalAmount,
+        ]),
+      },
+    });
+    void downloadWorkbook(workbook, `Cash-Flow-Report-${month || "semua-periode"}.xlsx`);
+  };
 
   if (isLoading) {
     return (
@@ -31,6 +84,13 @@ export function CashFlowReport() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
+        <Button variant="outline" className="ml-auto" onClick={handleDownload}>
+          <Download className="h-4 w-4" /> Download Excel
+        </Button>
+      </div>
+
       <p className="text-sm text-muted-foreground">
         Hanya menghitung Payment Voucher berstatus <strong>Dibayar</strong> - yang masih Draft/Menunggu
         Approval belum dianggap arus kas beneran.
@@ -81,6 +141,46 @@ export function CashFlowReport() {
           >
             {net >= 0 ? "Surplus" : "Defisit"}: {formatCurrency(Math.abs(net))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rincian Transaksi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>No. PV</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Arah</TableHead>
+                <TableHead>Vendor/Customer</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vouchers.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Inbox className="h-8 w-8" />
+                      <p className="text-sm">Tidak ada PV yang dibayar pada periode ini.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {vouchers.map((v) => (
+                <TableRow key={v.id}>
+                  <TableCell className="font-medium">{v.voucherNumber}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(v.date)}</TableCell>
+                  <TableCell>{v.direction === "in" ? "In" : "Out"}</TableCell>
+                  <TableCell>{v.partyName}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(v.totalAmount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

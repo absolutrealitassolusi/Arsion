@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Download, Inbox } from "lucide-react";
+import { FileText, Wallet, AlertTriangle, Download, Inbox } from "lucide-react";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,20 +22,18 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { usePaymentVouchers } from "@/hooks/use-payment-vouchers";
+import { useInvoices } from "@/hooks/use-invoices";
 import { buildReportWorkbook, downloadWorkbook } from "@/lib/export-excel";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { PvStatus } from "@/types/payment-voucher";
+import type { InvoiceStatus } from "@/types/invoice";
 
-const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "default" | "success" | "destructive" }> = {
+const statusMap: Record<InvoiceStatus, { label: string; variant: "success" | "secondary" | "default" }> = {
   draft: { label: "Draft", variant: "secondary" },
-  submitted: { label: "Menunggu Approval", variant: "default" },
-  approved: { label: "Disetujui", variant: "success" },
-  rejected: { label: "Ditolak", variant: "destructive" },
-  paid: { label: "Dibayar", variant: "success" },
+  sent: { label: "Terkirim", variant: "default" },
+  paid: { label: "Lunas", variant: "success" },
 };
 
-const statusOrder: PvStatus[] = ["draft", "submitted", "approved", "rejected", "paid"];
+const statusOrder: InvoiceStatus[] = ["draft", "sent", "paid"];
 
 function currentMonthValue() {
   return new Date().toISOString().slice(0, 7);
@@ -48,49 +46,48 @@ function periodLabel(month: string) {
   return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 }
 
-export function VoucherReport() {
+export function InvoiceReport() {
   const [month, setMonth] = useState(currentMonthValue());
   const [status, setStatus] = useState("");
-  const { data, isLoading } = usePaymentVouchers({});
+  const { data, isLoading } = useInvoices({});
 
-  const vouchers = useMemo(() => {
-    return (data?.data ?? []).filter((v) => {
-      if (month && !v.date.startsWith(month)) return false;
-      if (status && v.status !== status) return false;
+  const invoices = useMemo(() => {
+    return (data?.data ?? []).filter((inv) => {
+      if (month && !inv.date.startsWith(month)) return false;
+      if (status && inv.status !== status) return false;
       return true;
     });
   }, [data, month, status]);
 
-  const totalIn = vouchers.filter((v) => v.direction === "in").length;
-  const totalOut = vouchers.filter((v) => v.direction === "out").length;
-  const totalValue = vouchers.reduce((sum, v) => sum + v.totalAmount, 0);
+  const totalValue = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  const overdueCount = invoices.filter((inv) => inv.isOverdue).length;
 
   const byStatus = statusOrder.map((s) => {
-    const list = vouchers.filter((v) => v.status === s);
-    return { status: s, count: list.length, total: list.reduce((sum, v) => sum + v.totalAmount, 0) };
+    const list = invoices.filter((inv) => inv.status === s);
+    return { status: s, count: list.length, total: list.reduce((sum, inv) => sum + inv.totalAmount, 0) };
   });
 
   const handleDownload = () => {
     const workbook = buildReportWorkbook({
-      title: "Voucher Report",
+      title: "Invoice Report",
       periodLabel: periodLabel(month),
       summarySheet: {
-        headers: ["Status", "Jumlah PV", "Total Nilai"],
+        headers: ["Status", "Jumlah Invoice", "Total Nilai"],
         rows: byStatus.map((row) => [statusMap[row.status].label, row.count, row.total]),
       },
       detailSheet: {
-        headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total", "Status"],
-        rows: vouchers.map((v) => [
-          v.voucherNumber,
-          formatDate(v.date),
-          v.direction === "in" ? "In" : "Out",
-          v.partyName,
-          v.totalAmount,
-          statusMap[v.status].label,
+        headers: ["No. Invoice", "Tanggal", "Customer", "Jatuh Tempo", "Total", "Status"],
+        rows: invoices.map((inv) => [
+          inv.invoiceNumber,
+          formatDate(inv.date),
+          inv.customerName,
+          formatDate(inv.dueDate),
+          inv.totalAmount,
+          statusMap[inv.status].label + (inv.isOverdue ? " (Jatuh Tempo)" : ""),
         ]),
       },
     });
-    void downloadWorkbook(workbook, `Voucher-Report-${month || "semua-periode"}.xlsx`);
+    void downloadWorkbook(workbook, `Invoice-Report-${month || "semua-periode"}.xlsx`);
   };
 
   if (isLoading) {
@@ -125,11 +122,10 @@ export function VoucherReport() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Payment Voucher" value={String(vouchers.length)} icon={Receipt} />
-        <StatCard label="Total PV In" value={String(totalIn)} icon={ArrowDownLeft} />
-        <StatCard label="Total PV Out" value={String(totalOut)} icon={ArrowUpRight} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total Invoice" value={String(invoices.length)} icon={FileText} />
         <StatCard label="Total Nilai" value={formatCurrency(totalValue)} icon={Wallet} />
+        <StatCard label="Jatuh Tempo" value={String(overdueCount)} icon={AlertTriangle} />
       </div>
 
       <Card>
@@ -141,7 +137,7 @@ export function VoucherReport() {
             <TableHeader>
               <TableRow>
                 <TableHead>Status</TableHead>
-                <TableHead>Jumlah PV</TableHead>
+                <TableHead>Jumlah Invoice</TableHead>
                 <TableHead className="text-right">Total Nilai</TableHead>
               </TableRow>
             </TableHeader>
@@ -171,36 +167,39 @@ export function VoucherReport() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>No. PV</TableHead>
+                <TableHead>No. Invoice</TableHead>
                 <TableHead>Tanggal</TableHead>
-                <TableHead>Arah</TableHead>
-                <TableHead>Vendor/Customer</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Jatuh Tempo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vouchers.length === 0 && (
+              {invoices.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-10 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Inbox className="h-8 w-8" />
-                      <p className="text-sm">Tidak ada PV pada periode/status ini.</p>
+                      <p className="text-sm">Tidak ada Invoice pada periode/status ini.</p>
                     </div>
                   </TableCell>
                 </TableRow>
               )}
-              {vouchers.map((v) => {
-                const st = statusMap[v.status];
+              {invoices.map((inv) => {
+                const st = statusMap[inv.status];
                 return (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">{v.voucherNumber}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(v.date)}</TableCell>
-                    <TableCell>{v.direction === "in" ? "In" : "Out"}</TableCell>
-                    <TableCell>{v.partyName}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(v.totalAmount)}</TableCell>
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-medium">{inv.invoiceNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(inv.date)}</TableCell>
+                    <TableCell>{inv.customerName}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(inv.dueDate)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(inv.totalAmount)}</TableCell>
                     <TableCell>
-                      <Badge variant={st.variant}>{st.label}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={st.variant}>{st.label}</Badge>
+                        {inv.isOverdue && <Badge variant="destructive">Jatuh Tempo</Badge>}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
