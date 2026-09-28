@@ -463,6 +463,8 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
                 <Badge variant={status.variant} className="text-sm">{status.label}</Badge>
               </div>
 
+              <VoucherSummary voucher={voucher} labels={labels} />
+
               <dl className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <dt className="text-xs text-muted-foreground">Diajukan oleh</dt>
@@ -536,6 +538,8 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
 
           {activeTab === "payment" && (
             <div className="space-y-6">
+              <VoucherSummary voucher={voucher} labels={labels} />
+
               <dl className="grid gap-4 sm:grid-cols-2">
                 {voucher.direction === "out" && (
                   <>
@@ -630,7 +634,9 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
           )}
 
           {activeTab === "tax" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              <VoucherSummary voucher={voucher} labels={labels} />
+
               {voucher.status === "paid" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
