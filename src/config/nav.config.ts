@@ -38,31 +38,36 @@ export const navItems: NavItem[] = [
       {
         label: "PV",
         children: [
-          { label: "PV In", href: "/finance/pv/pv-in", permission: PERMISSIONS.PV_VIEW },
-          { label: "PV Out", href: "/finance/pv/pv-out", permission: PERMISSIONS.PV_VIEW },
+          {
+            label: "Create PV",
+            children: [
+              { label: "PV In", href: "/finance/pv/pv-in", permission: PERMISSIONS.PV_VIEW },
+              { label: "PV Out", href: "/finance/pv/pv-out", permission: PERMISSIONS.PV_VIEW },
+            ],
+          },
+          {
+            label: "Approval",
+            href: "/finance/approval",
+            permission: PERMISSIONS.PV_APPROVE,
+          },
+          {
+            label: "Payment",
+            href: "/finance/payment",
+            permission: PERMISSIONS.PV_PAY,
+          },
+          {
+            label: "Tax",
+            children: [
+              { label: "Tax In", href: "/finance/tax/tax-in", permission: PERMISSIONS.PV_PAY },
+              { label: "Tax Out", href: "/finance/tax/tax-out", permission: PERMISSIONS.PV_PAY },
+            ],
+          },
         ],
-      },
-      {
-        label: "Approval",
-        href: "/finance/approval",
-        permission: PERMISSIONS.PV_APPROVE,
-      },
-      {
-        label: "Payment",
-        href: "/finance/payment",
-        permission: PERMISSIONS.PV_PAY,
       },
       {
         label: "Invoice",
         href: "/finance/invoice",
         permission: PERMISSIONS.FINANCE_INVOICE,
-      },
-      {
-        label: "Tax",
-        children: [
-          { label: "Tax In", href: "/finance/tax/tax-in", permission: PERMISSIONS.PV_PAY },
-          { label: "Tax Out", href: "/finance/tax/tax-out", permission: PERMISSIONS.PV_PAY },
-        ],
       },
       {
         label: "Archive",
