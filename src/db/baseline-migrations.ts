@@ -6,9 +6,11 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
  * One-time adoption step: the "0000" migration is a fresh CREATE TABLE/TYPE
  * dump of schema.ts, but the tables already exist on this DB (pre-dating
  * drizzle-kit). Running it for real would fail on "already exists", so
- * instead we record it as already-applied in drizzle's own bookkeeping
- * table, using drizzle's own hash/timestamp logic (readMigrationFiles) so
- * future `db:migrate` runs agree it's done. Safe to re-run: skips if a
+ * instead we record ONLY that first migration as already-applied in
+ * drizzle's own bookkeeping table, using drizzle's own hash/timestamp logic
+ * (readMigrationFiles) so `db:migrate` agrees it's done and skips it - any
+ * later migrations (0001+) are real schema changes and get applied for real
+ * by `db:migrate` afterwards, not stamped here. Safe to re-run: skips if a
  * migration is already recorded.
  */
 async function main() {
@@ -18,10 +20,8 @@ async function main() {
 
   const migrations = readMigrationFiles({ migrationsFolder: "./drizzle" });
   const baseline = migrations[0];
-  if (migrations.length !== 1 || !baseline) {
-    throw new Error(
-      `Expected exactly 1 baseline migration in ./drizzle, found ${migrations.length}. This script is only meant for the initial baseline adoption.`
-    );
+  if (!baseline) {
+    throw new Error("No migrations found in ./drizzle.");
   }
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
