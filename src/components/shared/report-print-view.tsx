@@ -16,7 +16,12 @@ interface ReportPrintViewProps {
  */
 export function ReportPrintView({ title, periodLabel, summarySheet, detailSheet }: ReportPrintViewProps) {
   return (
-    <div className="hidden bg-white text-black print:block print:text-[11px]">
+    <div
+      className="hidden bg-white text-black print:block print:text-[11px]"
+      // Dijamin selalu putih apapun tema web-nya (dark/light) - lihat
+      // catatan sama di PaymentVoucherPrint.
+      style={{ backgroundColor: "#fff" }}
+    >
       <h1 className="text-lg font-bold">{title}</h1>
       <p className="text-sm text-neutral-600">Periode: {periodLabel}</p>
       <p className="text-sm text-neutral-600">Dicetak: {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}</p>

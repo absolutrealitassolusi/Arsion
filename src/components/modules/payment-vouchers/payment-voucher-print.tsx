@@ -120,6 +120,10 @@ export function PaymentVoucherPrint({
         "bg-white text-black print:text-[11px]",
         mode === "print" ? "hidden print:block" : "block print:hidden"
       )}
+      // Dijamin selalu putih apapun tema web-nya (dark/light) - style inline
+      // sengaja dipasang sebagai lapisan tambahan di atas className bg-white,
+      // supaya gak kebergantung ke urutan/prioritas CSS sama sekali.
+      style={{ backgroundColor: "#fff" }}
     >
       {/* Kop surat */}
       <div className="flex items-start justify-between">
@@ -280,12 +284,16 @@ export function PaymentVoucherPrint({
         rasio gambarnya beda dari A4.
       */}
       {attachmentPages.map((page) => (
-        <div key={page.key} className="break-before-page flex justify-center">
+        <div
+          key={page.key}
+          className="break-before-page flex justify-center bg-white"
+          style={{ backgroundColor: "#fff" }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={page.url}
             alt={`${page.label} halaman ${page.pageIndex + 1}`}
-            className="max-h-[273mm] max-w-full object-contain"
+            className="max-h-[273mm] max-w-full bg-white object-contain"
           />
         </div>
       ))}

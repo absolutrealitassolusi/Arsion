@@ -34,6 +34,9 @@ export function InvoicePrint({ invoice, mode = "print" }: InvoicePrintProps) {
         "bg-white text-black print:text-[11px]",
         mode === "print" ? "hidden print:block" : "block print:hidden"
       )}
+      // Dijamin selalu putih apapun tema web-nya (dark/light) - lihat
+      // catatan sama di PaymentVoucherPrint.
+      style={{ backgroundColor: "#fff" }}
     >
       {/* Kop surat */}
       <div className="flex items-start justify-between">
