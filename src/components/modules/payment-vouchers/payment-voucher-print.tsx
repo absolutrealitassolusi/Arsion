@@ -117,7 +117,7 @@ export function PaymentVoucherPrint({
   return (
     <div
       className={cn(
-        "bg-white text-black print:text-[11px]",
+        "border-r-2 border-black bg-white pr-2 text-black print:text-[11px]",
         mode === "print" ? "hidden print:block" : "block print:hidden"
       )}
       // Dijamin selalu putih apapun tema web-nya (dark/light) - style inline
