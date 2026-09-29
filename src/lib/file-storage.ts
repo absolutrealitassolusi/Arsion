@@ -64,6 +64,20 @@ export async function resolveValues(values: (string | null | undefined)[]): Prom
   return Promise.all(values.map((v) => resolveValue(v)));
 }
 
+/**
+ * Narik BYTE file aslinya langsung dari Storage - beda dari resolveValue
+ * (yang cuma bikin signed URL berumur pendek). Dipakai buat kebutuhan
+ * server-side yang perlu isi filenya beneran, misal digabung jadi ZIP
+ * (lihat src/app/api/payment-vouchers/attachments-zip/route.ts).
+ */
+export async function downloadFile(path: string): Promise<Buffer> {
+  const { data, error } = await getClient().storage.from(BUCKET).download(path);
+  if (error || !data) {
+    throw new Error(`Gagal download file dari Storage: ${error?.message ?? "unknown error"}`);
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function createPrivateBucketIfMissing() {
   const client = getClient();
   const { data: buckets, error: listError } = await client.storage.listBuckets();

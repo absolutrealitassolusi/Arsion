@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Download, Printer, Inbox } from "lucide-react";
+import { toast } from "sonner";
+import { Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Download, Printer, Paperclip, Inbox } from "lucide-react";
 import { ReportPrintView } from "@/components/shared/report-print-view";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,6 +97,33 @@ export function VoucherReport() {
     void downloadWorkbook(workbook, `Voucher-Report-${month || "semua-periode"}.xlsx`);
   };
 
+  const handleDownloadAttachments = async () => {
+    const params = new URLSearchParams();
+    if (month) params.set("month", month);
+    if (status) params.set("status", status);
+
+    const res = await fetch(`/api/payment-vouchers/attachments-zip?${params.toString()}`);
+    if (res.status === 404) {
+      const body = (await res.json()) as { message?: string };
+      toast.error(body.message ?? "Tidak ada lampiran pada periode/status ini.");
+      return;
+    }
+    if (!res.ok) {
+      toast.error("Gagal download lampiran.");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Lampiran-PV-${month || "semua-periode"}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -126,12 +154,15 @@ export function VoucherReport() {
             ))}
           </SelectContent>
         </Select>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> Download PDF
           </Button>
           <Button variant="outline" onClick={handleDownloadExcel}>
             <Download className="h-4 w-4" /> Download Excel
+          </Button>
+          <Button variant="outline" onClick={() => void handleDownloadAttachments()}>
+            <Paperclip className="h-4 w-4" /> Download Lampiran (ZIP)
           </Button>
         </div>
       </div>
