@@ -145,7 +145,7 @@ export function PaymentVoucherArchiveTable() {
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link
-                        href={`/finance/pv/${voucher.direction === "in" ? "pv-in" : "pv-out"}/${voucher.id}`}
+                        href={`/finance/archive/${voucher.id}`}
                       >
                         <Eye className="h-4 w-4" /> Lihat
                       </Link>
