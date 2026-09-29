@@ -2,18 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { vendorService } from "@/services/vendor.service";
 import type { ApiErrorShape } from "@/lib/axios";
-import type { VendorPayload } from "@/types/vendor";
+import type { VendorFilters, VendorPayload } from "@/types/vendor";
 
 export const vendorKeys = {
   all: ["vendors"] as const,
-  list: (search?: string) => [...vendorKeys.all, "list", search ?? ""] as const,
+  list: (filters: VendorFilters) => [...vendorKeys.all, "list", filters] as const,
   detail: (id: string) => [...vendorKeys.all, "detail", id] as const,
 };
 
-export function useVendors(search?: string) {
+export function useVendors(filters: VendorFilters = {}) {
   return useQuery({
-    queryKey: vendorKeys.list(search),
-    queryFn: () => vendorService.getAll(search),
+    queryKey: vendorKeys.list(filters),
+    queryFn: () => vendorService.getAll(filters),
     staleTime: 30_000,
   });
 }
@@ -62,11 +62,26 @@ export function useDeleteVendor() {
   return useMutation({
     mutationFn: (id: string) => vendorService.remove(id),
     onSuccess: () => {
-      toast.success("Vendor berhasil dihapus");
+      toast.success("Vendor berhasil dinonaktifkan");
       queryClient.invalidateQueries({ queryKey: vendorKeys.all });
     },
     onError: (error: ApiErrorShape) => {
-      toast.error(error.message ?? "Gagal menghapus vendor");
+      toast.error(error.message ?? "Gagal menonaktifkan vendor");
+    },
+  });
+}
+
+export function useReactivateVendor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => vendorService.reactivate(id),
+    onSuccess: () => {
+      toast.success("Vendor berhasil diaktifkan");
+      queryClient.invalidateQueries({ queryKey: vendorKeys.all });
+    },
+    onError: (error: ApiErrorShape) => {
+      toast.error(error.message ?? "Gagal mengaktifkan vendor");
     },
   });
 }

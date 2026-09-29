@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Trash2, Building2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Power, PowerOff, Building2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -14,6 +14,13 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -21,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useDeleteVendor, useVendors } from "@/hooks/use-vendors";
+import { useDeleteVendor, useReactivateVendor, useVendors } from "@/hooks/use-vendors";
 import { formatDate } from "@/lib/utils";
 import type { Vendor, VendorStatus } from "@/types/vendor";
 
@@ -32,25 +39,38 @@ const statusMap: Record<VendorStatus, { label: string; variant: "success" | "sec
 
 export function VendorTable() {
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
-  const { data, isLoading, isError, error } = useVendors(search);
+  const [status, setStatus] = useState<VendorStatus>("active");
+  const [deactivateTarget, setDeactivateTarget] = useState<Vendor | null>(null);
+  const { data, isLoading, isError, error } = useVendors({ search, status });
   const deleteVendor = useDeleteVendor();
+  const reactivateVendor = useReactivateVendor();
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteVendor.mutate(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
+  const confirmDeactivate = () => {
+    if (!deactivateTarget) return;
+    deleteVendor.mutate(deactivateTarget.id, {
+      onSuccess: () => setDeactivateTarget(null),
     });
   };
 
   return (
     <div className="space-y-4">
-      <Input
-        placeholder="Cari nama vendor atau kode..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Cari nama vendor atau kode..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={status} onValueChange={(v) => setStatus(v as VendorStatus)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Aktif</SelectItem>
+            <SelectItem value="inactive">Nonaktif</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <Table>
         <TableHeader>
@@ -122,12 +142,15 @@ export function VendorTable() {
                         <DropdownMenuItem>
                           <Pencil className="h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(vendor)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Hapus
-                        </DropdownMenuItem>
+                        {vendor.status === "active" ? (
+                          <DropdownMenuItem onClick={() => setDeactivateTarget(vendor)}>
+                            <PowerOff className="h-4 w-4" /> Nonaktifkan
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => reactivateVendor.mutate(vendor.id)}>
+                            <Power className="h-4 w-4" /> Aktifkan
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -139,11 +162,12 @@ export function VendorTable() {
       </Table>
 
       <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Hapus vendor ini?"
-        description={`"${deleteTarget?.name}" akan dihapus permanen dan tidak bisa dikembalikan.`}
-        onConfirm={confirmDelete}
+        open={Boolean(deactivateTarget)}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+        title="Nonaktifkan vendor ini?"
+        description={`"${deactivateTarget?.name}" akan dinonaktifkan dan disembunyikan dari daftar aktif. Vendor ini masih bisa diaktifkan lagi nanti.`}
+        confirmLabel="Nonaktifkan"
+        onConfirm={confirmDeactivate}
         isLoading={deleteVendor.isPending}
       />
     </div>

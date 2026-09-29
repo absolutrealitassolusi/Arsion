@@ -1,14 +1,15 @@
 import { api } from "@/lib/axios";
 import type {
   ProjectDetailResponse,
+  ProjectFilters,
   ProjectListResponse,
   ProjectPayload,
 } from "@/types/project";
 
 export const projectService = {
-  async getAll(search?: string): Promise<ProjectListResponse> {
+  async getAll(filters: ProjectFilters = {}): Promise<ProjectListResponse> {
     const { data } = await api.get<ProjectListResponse>("/projects", {
-      params: { search },
+      params: filters,
     });
     return data;
   },
@@ -28,8 +29,14 @@ export const projectService = {
     return data;
   },
 
+  /** Arsipkan project (soft-delete - lihat DELETE /api/projects/[id]). */
   async remove(id: string): Promise<{ message: string }> {
     const { data } = await api.delete<{ message: string }>(`/projects/${id}`);
+    return data;
+  },
+
+  async reactivate(id: string): Promise<{ message: string }> {
+    const { data } = await api.patch<{ message: string }>(`/projects/${id}`);
     return data;
   },
 };

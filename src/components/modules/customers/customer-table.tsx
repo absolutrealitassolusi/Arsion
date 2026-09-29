@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
+import { MoreHorizontal, Pencil, Power, PowerOff, Users } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -14,6 +14,13 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -21,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useDeleteCustomer, useCustomers } from "@/hooks/use-customers";
+import { useDeleteCustomer, useReactivateCustomer, useCustomers } from "@/hooks/use-customers";
 import { formatDate } from "@/lib/utils";
 import type { Customer, CustomerStatus } from "@/types/customer";
 
@@ -32,25 +39,38 @@ const statusMap: Record<CustomerStatus, { label: string; variant: "success" | "s
 
 export function CustomerTable() {
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
-  const { data, isLoading, isError, error } = useCustomers(search);
+  const [status, setStatus] = useState<CustomerStatus>("active");
+  const [deactivateTarget, setDeactivateTarget] = useState<Customer | null>(null);
+  const { data, isLoading, isError, error } = useCustomers({ search, status });
   const deleteCustomer = useDeleteCustomer();
+  const reactivateCustomer = useReactivateCustomer();
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteCustomer.mutate(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
+  const confirmDeactivate = () => {
+    if (!deactivateTarget) return;
+    deleteCustomer.mutate(deactivateTarget.id, {
+      onSuccess: () => setDeactivateTarget(null),
     });
   };
 
   return (
     <div className="space-y-4">
-      <Input
-        placeholder="Cari nama customer atau kode..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Cari nama customer atau kode..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Aktif</SelectItem>
+            <SelectItem value="inactive">Nonaktif</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <Table>
         <TableHeader>
@@ -120,12 +140,15 @@ export function CustomerTable() {
                         <DropdownMenuItem>
                           <Pencil className="h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(customer)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Hapus
-                        </DropdownMenuItem>
+                        {customer.status === "active" ? (
+                          <DropdownMenuItem onClick={() => setDeactivateTarget(customer)}>
+                            <PowerOff className="h-4 w-4" /> Nonaktifkan
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => reactivateCustomer.mutate(customer.id)}>
+                            <Power className="h-4 w-4" /> Aktifkan
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -137,11 +160,12 @@ export function CustomerTable() {
       </Table>
 
       <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Hapus customer ini?"
-        description={`"${deleteTarget?.name}" akan dihapus permanen dan tidak bisa dikembalikan.`}
-        onConfirm={confirmDelete}
+        open={Boolean(deactivateTarget)}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+        title="Nonaktifkan customer ini?"
+        description={`"${deactivateTarget?.name}" akan dinonaktifkan dan disembunyikan dari daftar aktif. Customer ini masih bisa diaktifkan lagi nanti.`}
+        confirmLabel="Nonaktifkan"
+        onConfirm={confirmDeactivate}
         isLoading={deleteCustomer.isPending}
       />
     </div>

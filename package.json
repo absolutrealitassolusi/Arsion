@@ -13,7 +13,10 @@
     "test:e2e": "playwright test",
     "seed": "tsx src/db/seed.ts",
     "storage:setup": "tsx src/db/setup-storage.ts",
-    "auth:migrate-users": "tsx src/db/migrate-users-to-supabase-auth.ts"
+    "auth:migrate-users": "tsx src/db/migrate-users-to-supabase-auth.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:baseline": "tsx src/db/baseline-migrations.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

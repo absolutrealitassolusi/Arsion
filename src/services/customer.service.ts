@@ -1,14 +1,15 @@
 import { api } from "@/lib/axios";
 import type {
   CustomerDetailResponse,
+  CustomerFilters,
   CustomerListResponse,
   CustomerPayload,
 } from "@/types/customer";
 
 export const customerService = {
-  async getAll(search?: string): Promise<CustomerListResponse> {
+  async getAll(filters: CustomerFilters = {}): Promise<CustomerListResponse> {
     const { data } = await api.get<CustomerListResponse>("/customers", {
-      params: { search },
+      params: filters,
     });
     return data;
   },
@@ -28,8 +29,14 @@ export const customerService = {
     return data;
   },
 
+  /** Nonaktifkan customer (soft-delete - lihat DELETE /api/customers/[id]). */
   async remove(id: string): Promise<{ message: string }> {
     const { data } = await api.delete<{ message: string }>(`/customers/${id}`);
+    return data;
+  },
+
+  async reactivate(id: string): Promise<{ message: string }> {
+    const { data } = await api.patch<{ message: string }>(`/customers/${id}`);
     return data;
   },
 };

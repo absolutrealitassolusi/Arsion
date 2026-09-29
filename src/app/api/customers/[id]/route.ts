@@ -58,6 +58,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({ data: serializeCustomer(customer!) });
 }
 
+// Customer gak pernah di-hard-delete (bisa masih disebut di Invoice lama
+// lewat nama teks, bukan FK - hapus permanen bikin riwayat transaksi lama
+// kehilangan makna referensinya). "Hapus" di UI = nonaktifkan.
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requirePermission(PERMISSIONS.MASTER_DATA_CUSTOMER);
   if ("error" in auth) return auth.error;
@@ -68,7 +71,22 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ message: "Customer tidak ditemukan" }, { status: 404 });
   }
 
-  await db.delete(customers).where(eq(customers.id, id));
-  await logActivity(auth.user.name, "Hapus Customer", `${existing.name} (${existing.id})`);
-  return NextResponse.json({ message: "Customer berhasil dihapus" });
+  await db.update(customers).set({ status: "inactive" }).where(eq(customers.id, id));
+  await logActivity(auth.user.name, "Nonaktifkan Customer", `${existing.name} (${existing.id})`);
+  return NextResponse.json({ message: "Customer berhasil dinonaktifkan" });
+}
+
+export async function PATCH(_request: NextRequest, { params }: RouteParams) {
+  const auth = await requirePermission(PERMISSIONS.MASTER_DATA_CUSTOMER);
+  if ("error" in auth) return auth.error;
+
+  const { id } = await params;
+  const [existing] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  if (!existing) {
+    return NextResponse.json({ message: "Customer tidak ditemukan" }, { status: 404 });
+  }
+
+  await db.update(customers).set({ status: "active" }).where(eq(customers.id, id));
+  await logActivity(auth.user.name, "Aktifkan Customer", `${existing.name} (${existing.id})`);
+  return NextResponse.json({ message: "Customer berhasil diaktifkan" });
 }

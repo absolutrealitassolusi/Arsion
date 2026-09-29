@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790664936702,
+      "tag": "0000_fresh_gabe_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790665520934,
+      "tag": "0001_living_micromax",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790666066261,
+      "tag": "0002_smart_daredevil",
+      "breakpoints": true
+    }
+  ]
+}

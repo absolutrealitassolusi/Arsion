@@ -1,14 +1,15 @@
 import { api } from "@/lib/axios";
 import type {
   VendorDetailResponse,
+  VendorFilters,
   VendorListResponse,
   VendorPayload,
 } from "@/types/vendor";
 
 export const vendorService = {
-  async getAll(search?: string): Promise<VendorListResponse> {
+  async getAll(filters: VendorFilters = {}): Promise<VendorListResponse> {
     const { data } = await api.get<VendorListResponse>("/vendors", {
-      params: { search },
+      params: filters,
     });
     return data;
   },
@@ -28,8 +29,14 @@ export const vendorService = {
     return data;
   },
 
+  /** Nonaktifkan vendor (soft-delete - lihat DELETE /api/vendors/[id]). */
   async remove(id: string): Promise<{ message: string }> {
     const { data } = await api.delete<{ message: string }>(`/vendors/${id}`);
+    return data;
+  },
+
+  async reactivate(id: string): Promise<{ message: string }> {
+    const { data } = await api.patch<{ message: string }>(`/vendors/${id}`);
     return data;
   },
 };

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects } from "@/db/schema";
 import { requireUser, requirePermission } from "@/lib/api-auth";
@@ -14,11 +14,22 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") ?? "";
+  // Default nyembunyiin yang udah diarsipkan dari daftar utama (Project
+  // punya beberapa status hidup lain yang tetap harus kelihatan seperti
+  // biasa - ongoing/completed/on_hold/cancelled - cuma "archived" yang
+  // disembunyikan) - minta ?status=archived eksplisit buat lihat arsipnya.
+  const statusParam = searchParams.get("status");
+  const statusCondition = statusParam === "archived" ? eq(projects.status, "archived") : ne(projects.status, "archived");
+
+  const conditions = [
+    statusCondition,
+    search ? or(ilike(projects.name, `%${search}%`), ilike(projects.id, `%${search}%`)) : undefined,
+  ].filter((c) => c !== undefined);
 
   const rows = await db
     .select()
     .from(projects)
-    .where(search ? or(ilike(projects.name, `%${search}%`), ilike(projects.id, `%${search}%`)) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(projects.createdAt));
 
   const data = rows.map(serializeProject);

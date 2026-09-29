@@ -7,7 +7,7 @@ import type { InvoiceItem, InvoiceHistoryEntry } from "@/types/invoice";
 export const userStatusEnum = pgEnum("UserStatus", ["active", "inactive"]);
 export const vendorStatusEnum = pgEnum("VendorStatus", ["active", "inactive"]);
 export const customerStatusEnum = pgEnum("CustomerStatus", ["active", "inactive"]);
-export const projectStatusEnum = pgEnum("ProjectStatus", ["ongoing", "completed", "on_hold", "cancelled"]);
+export const projectStatusEnum = pgEnum("ProjectStatus", ["ongoing", "completed", "on_hold", "cancelled", "archived"]);
 export const pvDirectionEnum = pgEnum("PvDirection", ["in", "out"]);
 export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid"]);
 export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque"]);
@@ -101,6 +101,11 @@ export const projects = pgTable("Project", {
   startDate: timestamp("startDate"),
   endDate: timestamp("endDate"),
   status: projectStatusEnum("status").notNull().default("ongoing"),
+  // Nyimpen status sebelum diarsipkan (ongoing/completed/on_hold/cancelled) -
+  // supaya "Aktifkan Kembali" bisa balikin ke status aslinya, bukan selalu
+  // ke "ongoing" (proyek yang sebenernya udah "completed" pas diarsipkan
+  // jangan sampai keliatan "ongoing" lagi pas diaktifkan ulang).
+  statusBeforeArchive: projectStatusEnum("statusBeforeArchive"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
 });

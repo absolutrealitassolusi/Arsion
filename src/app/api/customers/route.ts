@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers } from "@/db/schema";
 import { requireUser, requirePermission } from "@/lib/api-auth";
@@ -14,11 +14,19 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") ?? "";
+  // Default nampilin yang aktif aja (customer nonaktif disembunyikan dari
+  // daftar utama) - minta ?status=inactive eksplisit buat lihat yang nonaktif.
+  const status = searchParams.get("status") === "inactive" ? "inactive" : "active";
+
+  const conditions = [
+    eq(customers.status, status),
+    search ? or(ilike(customers.name, `%${search}%`), ilike(customers.id, `%${search}%`)) : undefined,
+  ].filter((c) => c !== undefined);
 
   const rows = await db
     .select()
     .from(customers)
-    .where(search ? or(ilike(customers.name, `%${search}%`), ilike(customers.id, `%${search}%`)) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(customers.createdAt));
 
   const data = rows.map(serializeCustomer);

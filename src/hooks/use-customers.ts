@@ -2,18 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { customerService } from "@/services/customer.service";
 import type { ApiErrorShape } from "@/lib/axios";
-import type { CustomerPayload } from "@/types/customer";
+import type { CustomerFilters, CustomerPayload } from "@/types/customer";
 
 export const customerKeys = {
   all: ["customers"] as const,
-  list: (search?: string) => [...customerKeys.all, "list", search ?? ""] as const,
+  list: (filters: CustomerFilters) => [...customerKeys.all, "list", filters] as const,
   detail: (id: string) => [...customerKeys.all, "detail", id] as const,
 };
 
-export function useCustomers(search?: string) {
+export function useCustomers(filters: CustomerFilters = {}) {
   return useQuery({
-    queryKey: customerKeys.list(search),
-    queryFn: () => customerService.getAll(search),
+    queryKey: customerKeys.list(filters),
+    queryFn: () => customerService.getAll(filters),
     staleTime: 30_000,
   });
 }
@@ -62,11 +62,26 @@ export function useDeleteCustomer() {
   return useMutation({
     mutationFn: (id: string) => customerService.remove(id),
     onSuccess: () => {
-      toast.success("Customer berhasil dihapus");
+      toast.success("Customer berhasil dinonaktifkan");
       queryClient.invalidateQueries({ queryKey: customerKeys.all });
     },
     onError: (error: ApiErrorShape) => {
-      toast.error(error.message ?? "Gagal menghapus customer");
+      toast.error(error.message ?? "Gagal menonaktifkan customer");
+    },
+  });
+}
+
+export function useReactivateCustomer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => customerService.reactivate(id),
+    onSuccess: () => {
+      toast.success("Customer berhasil diaktifkan");
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+    },
+    onError: (error: ApiErrorShape) => {
+      toast.error(error.message ?? "Gagal mengaktifkan customer");
     },
   });
 }

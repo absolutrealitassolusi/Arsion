@@ -14,6 +14,11 @@ export interface Customer {
 
 export type CustomerPayload = Omit<Customer, "id" | "status" | "updatedAt">;
 
+export interface CustomerFilters {
+  search?: string;
+  status?: CustomerStatus;
+}
+
 export interface CustomerListResponse {
   data: Customer[];
   total: number;

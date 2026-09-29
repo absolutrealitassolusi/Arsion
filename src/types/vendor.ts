@@ -16,6 +16,11 @@ export interface Vendor {
 
 export type VendorPayload = Omit<Vendor, "id" | "status" | "updatedAt">;
 
+export interface VendorFilters {
+  search?: string;
+  status?: VendorStatus;
+}
+
 export interface VendorListResponse {
   data: Vendor[];
   total: number;

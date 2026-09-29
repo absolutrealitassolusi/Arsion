@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Trash2, FolderKanban } from "lucide-react";
+import { MoreHorizontal, Pencil, Archive, RotateCcw, FolderKanban } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -14,6 +14,13 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -21,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useDeleteProject, useProjects } from "@/hooks/use-projects";
+import { useDeleteProject, useReactivateProject, useProjects } from "@/hooks/use-projects";
 import { formatDate } from "@/lib/utils";
 import type { Project, ProjectStatus } from "@/types/project";
 
@@ -30,29 +37,46 @@ const statusMap: Record<ProjectStatus, { label: string; variant: "success" | "se
   completed: { label: "Selesai", variant: "secondary" },
   on_hold: { label: "Ditahan", variant: "default" },
   cancelled: { label: "Dibatalkan", variant: "destructive" },
+  archived: { label: "Diarsipkan", variant: "secondary" },
 };
 
 export function ProjectTable() {
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
-  const { data, isLoading, isError, error } = useProjects(search);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Project | null>(null);
+  const { data, isLoading, isError, error } = useProjects({
+    search,
+    status: showArchived ? "archived" : undefined,
+  });
   const deleteProject = useDeleteProject();
+  const reactivateProject = useReactivateProject();
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteProject.mutate(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
+  const confirmArchive = () => {
+    if (!archiveTarget) return;
+    deleteProject.mutate(archiveTarget.id, {
+      onSuccess: () => setArchiveTarget(null),
     });
   };
 
   return (
     <div className="space-y-4">
-      <Input
-        placeholder="Cari nama project atau kode..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Cari nama project atau kode..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={showArchived ? "archived" : "active"} onValueChange={(v) => setShowArchived(v === "archived")}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Semua Status</SelectItem>
+            <SelectItem value="archived">Diarsipkan</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <Table>
         <TableHeader>
@@ -123,12 +147,15 @@ export function ProjectTable() {
                         <DropdownMenuItem>
                           <Pencil className="h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteTarget(project)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Hapus
-                        </DropdownMenuItem>
+                        {project.status === "archived" ? (
+                          <DropdownMenuItem onClick={() => reactivateProject.mutate(project.id)}>
+                            <RotateCcw className="h-4 w-4" /> Aktifkan Kembali
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => setArchiveTarget(project)}>
+                            <Archive className="h-4 w-4" /> Arsipkan
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -140,11 +167,12 @@ export function ProjectTable() {
       </Table>
 
       <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Hapus project ini?"
-        description={`"${deleteTarget?.name}" akan dihapus permanen dan tidak bisa dikembalikan.`}
-        onConfirm={confirmDelete}
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title="Arsipkan project ini?"
+        description={`"${archiveTarget?.name}" akan diarsipkan dan disembunyikan dari daftar utama. Project ini masih bisa diaktifkan lagi nanti.`}
+        confirmLabel="Arsipkan"
+        onConfirm={confirmArchive}
         isLoading={deleteProject.isPending}
       />
     </div>

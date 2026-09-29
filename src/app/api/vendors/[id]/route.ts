@@ -58,6 +58,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({ data: serializeVendor(vendor!) });
 }
 
+// Vendor gak pernah di-hard-delete (bisa masih disebut di PV/Invoice lama
+// lewat nama teks, bukan FK - hapus permanen bikin riwayat transaksi lama
+// kehilangan makna referensinya). "Hapus" di UI = nonaktifkan.
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requirePermission(PERMISSIONS.MASTER_DATA_VENDOR);
   if ("error" in auth) return auth.error;
@@ -68,7 +71,22 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ message: "Vendor tidak ditemukan" }, { status: 404 });
   }
 
-  await db.delete(vendors).where(eq(vendors.id, id));
-  await logActivity(auth.user.name, "Hapus Vendor", `${existing.name} (${existing.id})`);
-  return NextResponse.json({ message: "Vendor berhasil dihapus" });
+  await db.update(vendors).set({ status: "inactive" }).where(eq(vendors.id, id));
+  await logActivity(auth.user.name, "Nonaktifkan Vendor", `${existing.name} (${existing.id})`);
+  return NextResponse.json({ message: "Vendor berhasil dinonaktifkan" });
+}
+
+export async function PATCH(_request: NextRequest, { params }: RouteParams) {
+  const auth = await requirePermission(PERMISSIONS.MASTER_DATA_VENDOR);
+  if ("error" in auth) return auth.error;
+
+  const { id } = await params;
+  const [existing] = await db.select().from(vendors).where(eq(vendors.id, id)).limit(1);
+  if (!existing) {
+    return NextResponse.json({ message: "Vendor tidak ditemukan" }, { status: 404 });
+  }
+
+  await db.update(vendors).set({ status: "active" }).where(eq(vendors.id, id));
+  await logActivity(auth.user.name, "Aktifkan Vendor", `${existing.name} (${existing.id})`);
+  return NextResponse.json({ message: "Vendor berhasil diaktifkan" });
 }
