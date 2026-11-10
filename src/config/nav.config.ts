@@ -6,6 +6,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSIONS } from "@/config/permissions";
+import type { PvStatusCounts } from "@/types/payment-voucher";
 
 export interface NavItem {
   label: string;
@@ -13,6 +14,8 @@ export interface NavItem {
   icon?: LucideIcon;
   permission?: string;
   children?: NavItem[];
+  /** Tampilkan angka antrian PV di samping label (lihat usePvStatusCounts). */
+  badge?: keyof PvStatusCounts;
 }
 
 /**
@@ -49,11 +52,13 @@ export const navItems: NavItem[] = [
             label: "Approval",
             href: "/finance/approval",
             permission: PERMISSIONS.PV_APPROVE,
+            badge: "submitted",
           },
           {
             label: "Payment",
             href: "/finance/payment",
             permission: PERMISSIONS.PV_PAY,
+            badge: "approved",
           },
           {
             label: "Tax",

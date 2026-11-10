@@ -6,6 +6,7 @@ import type {
   PvDirection,
   PvFile,
   PvStatus,
+  PvStatusCounts,
 } from "@/types/payment-voucher";
 
 export interface PaymentProofPayload {
@@ -25,6 +26,11 @@ export const paymentVoucherService = {
       params: filters,
     });
     return data;
+  },
+
+  async getStatusCounts(): Promise<PvStatusCounts> {
+    const { data } = await api.get<{ data: PvStatusCounts }>("/payment-vouchers/status-counts");
+    return data.data;
   },
 
   /** Perkiraan nomor PV berikutnya buat tanggal ini - gak menaikkan counter. */
@@ -62,7 +68,7 @@ export const paymentVoucherService = {
     return data;
   },
 
-  async reject(id: string, note?: string): Promise<PaymentVoucherDetailResponse> {
+  async reject(id: string, note: string): Promise<PaymentVoucherDetailResponse> {
     const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/reject`, { note });
     return data;
   },

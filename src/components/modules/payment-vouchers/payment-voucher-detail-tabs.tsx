@@ -377,7 +377,7 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
       description: "Pembuatnya bisa edit & mengajukan ulang PV ini setelah ditolak.",
       confirmLabel: "Tolak",
       run: () =>
-        rejectVoucher.mutate(rejectNoteInput.trim() || undefined, {
+        rejectVoucher.mutate(rejectNoteInput.trim(), {
           onSuccess: () => backToListPath && router.push(backToListPath),
         }),
     },

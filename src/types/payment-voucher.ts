@@ -118,6 +118,8 @@ export interface PaymentVoucher {
   taxInvoiceNumber: string | null;
 
   attachmentName: string | null;
+  /** Jumlah file Lampiran - cuma diisi di endpoint list (yang gak ngirim isi lampirannya). */
+  attachmentCount?: number;
   /** Data URL tiap halaman Lampiran (1 elemen kalau JPG/PNG, banyak kalau PDF multi-halaman) - dipakai buat preview & ikut ke print. */
   attachmentUrls: string[] | null;
   status: PvStatus;
@@ -189,4 +191,10 @@ export interface PaymentVoucherListResponse {
 
 export interface PaymentVoucherDetailResponse {
   data: PaymentVoucher;
+}
+
+/** Jumlah PV per antrian - Approval = submitted, Payment = approved. */
+export interface PvStatusCounts {
+  submitted: number;
+  approved: number;
 }

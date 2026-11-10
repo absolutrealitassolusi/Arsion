@@ -364,11 +364,27 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
     }
   };
 
+  // Alasan penolakan terakhir - tetap ditampilkan walaupun PV-nya sudah
+  // disimpan ulang sebagai Draft (entri "draft" setelah "rejected" dilewati),
+  // supaya pembuatnya tahu apa yang harus diperbaiki sebelum mengajukan ulang.
+  const lastReviewEntry = editVoucher
+    ? [...editVoucher.history].reverse().find((h) => h.status !== "draft")
+    : undefined;
+  const rejection = lastReviewEntry?.status === "rejected" ? lastReviewEntry : undefined;
+
   return (
     <form
       onSubmit={handleSubmit((values) => guardPpnZero(values, () => onSaveDraft(values)))}
       className="space-y-6 pb-24"
     >
+      {rejection && (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-sm font-semibold text-destructive">PV ini ditolak oleh {rejection.by}</p>
+          <p className="mt-1 text-sm">Alasan: {rejection.note ?? "-"}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Perbaiki sesuai alasan di atas, lalu ajukan ulang untuk approval.</p>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Informasi Voucher</CardTitle>

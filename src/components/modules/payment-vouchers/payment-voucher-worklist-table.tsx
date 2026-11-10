@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Inbox } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Inbox, Paperclip } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -45,7 +45,7 @@ export function PaymentVoucherWorklistTable({
   const { data, isLoading, isError, error } = usePaymentVouchers({ status, direction });
   const vouchers = (data?.data ?? []).filter((v) => (onlyMissingTaxInvoice ? !v.taxInvoiceNumber : true));
 
-  const columnCount = direction ? 5 : 6;
+  const columnCount = direction ? 7 : 8;
 
   return (
     <Table>
@@ -55,6 +55,8 @@ export function PaymentVoucherWorklistTable({
           {!direction && <TableHead>Arah</TableHead>}
           <TableHead>Tanggal</TableHead>
           <TableHead>Vendor / Customer</TableHead>
+          <TableHead>Bank Pengirim</TableHead>
+          <TableHead>Lampiran</TableHead>
           <TableHead>Total</TableHead>
           <TableHead className="text-right">Aksi</TableHead>
         </TableRow>
@@ -101,7 +103,20 @@ export function PaymentVoucherWorklistTable({
                   </TableCell>
                 )}
                 <TableCell className="text-muted-foreground">{formatDate(voucher.date)}</TableCell>
-                <TableCell>{voucher.partyName}</TableCell>
+                <TableCell className="max-w-xs">
+                  <p>{voucher.partyName}</p>
+                  {voucher.description && (
+                    <p className="truncate text-xs text-muted-foreground" title={voucher.description}>
+                      {voucher.description}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="text-muted-foreground">{voucher.senderBank || "-"}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Paperclip className="h-3.5 w-3.5" /> {voucher.attachmentCount ?? 0}
+                  </span>
+                </TableCell>
                 <TableCell className="font-medium">{formatCurrency(voucher.totalAmount)}</TableCell>
                 <TableCell className="text-right">
                   <Link href={`${basePath}/${voucher.id}`} className="text-sm font-medium text-primary hover:underline">

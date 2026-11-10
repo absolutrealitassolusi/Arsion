@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import type { NavItem } from "@/config/nav.config";
+import type { PvStatusCounts } from "@/types/payment-voucher";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -12,6 +13,8 @@ interface SidebarNavItemProps {
   item: NavItem;
   collapsed: boolean;
   onNavigate?: () => void;
+  /** Angka antrian PV buat item yang punya `badge` - dioper dari <SidebarNav />. */
+  counts?: PvStatusCounts;
 }
 
 function isPathActive(pathname: string, href?: string): boolean {
@@ -35,7 +38,7 @@ function hasActiveDescendant(item: NavItem, pathname: string): boolean {
  * memanggil dirinya sendiri untuk tiap child (rekursif) - lihat penjelasan
  * kenapa ini dipisah dari <SidebarNav /> di pesan chat.
  */
-export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemProps) {
+export function SidebarNavItem({ item, collapsed, onNavigate, counts }: SidebarNavItemProps) {
   const pathname = usePathname();
   const hasChildren = Boolean(item.children?.length);
   const isChildActive = hasChildren && item.children!.some((child) => hasActiveDescendant(child, pathname));
@@ -93,6 +96,7 @@ export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemPr
                 item={child}
                 collapsed={collapsed}
                 onNavigate={onNavigate}
+                counts={counts}
               />
             ))}
           </div>
@@ -102,6 +106,7 @@ export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemPr
   }
 
   const isActive = isPathActive(pathname, item.href);
+  const badgeCount = item.badge ? (counts?.[item.badge] ?? 0) : 0;
   const link = (
     <Link
       href={item.href ?? "#"}
@@ -116,7 +121,15 @@ export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemPr
       )}
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" />}
-      {!collapsed && item.label}
+      {!collapsed && <span className="flex-1">{item.label}</span>}
+      {!collapsed && badgeCount > 0 && (
+        <span
+          aria-label={`${badgeCount} menunggu`}
+          className="min-w-5 rounded-full bg-primary px-1.5 text-center text-xs font-semibold leading-5 text-primary-foreground"
+        >
+          {badgeCount > 99 ? "99+" : badgeCount}
+        </span>
+      )}
     </Link>
   );
 
@@ -125,7 +138,10 @@ export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemPr
   return (
     <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
+      <TooltipContent side="right">
+        {item.label}
+        {badgeCount > 0 && ` (${badgeCount})`}
+      </TooltipContent>
     </Tooltip>
   );
 }

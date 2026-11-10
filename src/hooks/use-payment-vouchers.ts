@@ -22,6 +22,21 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
   });
 }
 
+/**
+ * Angka antrian di menu samping. Key-nya di bawah `all`, jadi ikut ke-refresh
+ * tiap ada mutasi PV (submit/approve/pay/dst) - plus polling 1 menit buat
+ * nangkep perubahan dari user lain.
+ */
+export function usePvStatusCounts(enabled = true) {
+  return useQuery({
+    queryKey: [...paymentVoucherKeys.all, "status-counts"] as const,
+    queryFn: () => paymentVoucherService.getStatusCounts(),
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
 /** Perkiraan nomor PV buat form "Buat PV" - ikut di-refresh tiap ada PV baru (key di bawah `all`). */
 export function usePvNumberPreview(date: string, enabled: boolean) {
   return useQuery({
@@ -105,7 +120,7 @@ export function useRejectPaymentVoucher(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (note?: string) => paymentVoucherService.reject(id, note),
+    mutationFn: (note: string) => paymentVoucherService.reject(id, note),
     onSuccess: () => {
       toast.success("Payment Voucher ditolak");
       queryClient.invalidateQueries({ queryKey: paymentVoucherKeys.all });

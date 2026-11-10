@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
       invoiceNumber: paymentVouchers.invoiceNumber,
       taxInvoiceNumber: paymentVouchers.taxInvoiceNumber,
       attachmentName: paymentVouchers.attachmentName,
+      // PV lama (sebelum kolom attachments ada) dihitung 1 kalau punya lampiran.
+      attachmentCount: sql<number>`CASE WHEN jsonb_array_length(${paymentVouchers.attachments}) > 0 THEN jsonb_array_length(${paymentVouchers.attachments}) WHEN ${paymentVouchers.attachmentName} IS NOT NULL THEN 1 ELSE 0 END`.mapWith(Number),
       status: paymentVouchers.status,
       preparedBy: paymentVouchers.preparedBy,
       approvedBy: paymentVouchers.approvedBy,
@@ -77,8 +79,8 @@ export async function GET(request: NextRequest) {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(paymentVouchers.createdAt));
 
-  const data = rows.map((row) =>
-    serializePaymentVoucher({
+  const data = rows.map(({ attachmentCount, ...row }) => ({
+    ...serializePaymentVoucher({
       ...row,
       attachmentUrls: [],
       paymentProofUrls: [],
@@ -88,8 +90,9 @@ export async function GET(request: NextRequest) {
       preparedSignatureSnapshot: null,
       approvedSignatureSnapshot: null,
       paidSignatureSnapshot: null,
-    })
-  );
+    }),
+    attachmentCount,
+  }));
   return NextResponse.json({ data, total: data.length });
 }
 
