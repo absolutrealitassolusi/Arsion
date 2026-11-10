@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Package, Paperclip, Plus, Save, Send, Trash2 } from "lucide-react";
+import { Package, Plus, Save, Send, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -44,10 +44,13 @@ import { paymentVoucherService } from "@/services/payment-voucher.service";
 import { useVendors, useCreateVendor } from "@/hooks/use-vendors";
 import { useCustomers, useCreateCustomer } from "@/hooks/use-customers";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { companyBankOptions } from "@/mocks/data/company-banks";
+import { useCompany } from "@/hooks/use-company";
+import { DEFAULT_COMPANY_BANKS } from "@/schemas/company.schema";
 import {
   calculatePvTotals,
   ITEM_CATEGORY_LABELS,
+  PAYMENT_METHOD_LABELS,
+  type PaymentMethod,
   type ItemCategory,
   type PvDirection,
   type PaymentVoucher,
@@ -55,12 +58,27 @@ import {
 } from "@/types/payment-voucher";
 import { formatCurrency } from "@/lib/utils";
 import { getErrorMessage, type ApiErrorShape } from "@/lib/axios";
-import { fileToPreviewDataUrls } from "@/lib/file-to-data-url";
-import { useUploadDataUrls } from "@/hooks/use-file-upload";
-import { useResolvedFileUrls } from "@/hooks/use-resolved-file-urls";
-import { FilePreviewThumbnails } from "@/components/modules/payment-vouchers/file-preview-thumbnails";
+import { MultiFileUpload } from "@/components/modules/payment-vouchers/multi-file-upload";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const emptyItem = { category: "barang" as ItemCategory, description: "", qty: 1, unitPrice: 0 };
+
+type RateField = "ppnPercent" | "pphJasaPercent" | "pphFreelancePercent";
+
+/** Tarif default yang diisi otomatis kalau ada item yang kena pajaknya (PPN 11%, PPh 23 2%, PPh 21 5%). */
+const DEFAULT_RATES: Record<RateField, number> = { ppnPercent: 11, pphJasaPercent: 2, pphFreelancePercent: 5 };
+
+/** Dasar pengenaan pajak per jenis - aturannya sama dengan calculatePvTotals. */
+function taxBases(items: { category: ItemCategory; qty: number | string; unitPrice: number | string }[]) {
+  const amount = (i: (typeof items)[number]) => (Number(i.qty) || 0) * (Number(i.unitPrice) || 0);
+  const sumOf = (pred: (c: ItemCategory) => boolean) =>
+    items.filter((i) => pred(i.category)).reduce((s, i) => s + amount(i), 0);
+  return {
+    ppn: sumOf((c) => c !== "non_pajak"),
+    jasa: sumOf((c) => c === "jasa"),
+    freelance: sumOf((c) => c === "freelance"),
+  };
+}
 
 interface PaymentVoucherFormProps {
   direction: PvDirection;
@@ -81,13 +99,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
   const currentUser = useCurrentUser();
   const basePath = direction === "in" ? "/finance/pv/pv-in" : "/finance/pv/pv-out";
   const [isSubmittingForApproval, setIsSubmittingForApproval] = useState(false);
-  const uploadAttachment = useUploadDataUrls();
-  // Preview lampiran YANG SUDAH ADA (mode edit) - value mentahnya (path
-  // Storage baru ATAU data URL lama) di-resolve dulu sebelum bisa dipakai
-  // sebagai <img src>. null = belum diganti file baru sejak form dibuka.
-  const existingAttachmentPreview = useResolvedFileUrls(editVoucher?.attachmentUrls ?? undefined);
-  const [freshAttachmentPreview, setFreshAttachmentPreview] = useState<string[] | null>(null);
-  const attachmentPreviewUrls = freshAttachmentPreview ?? (existingAttachmentPreview.data ?? []).filter((u): u is string => u !== null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const { data: vendorsData } = useVendors();
   const { data: customersData } = useCustomers();
@@ -99,6 +111,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
     control,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     formState: { errors },
   } = useForm<PaymentVoucherFormValues>({
@@ -122,8 +135,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
           poNumber: editVoucher.poNumber ?? "",
           invoiceNumber: editVoucher.invoiceNumber ?? "",
           taxInvoiceNumber: editVoucher.taxInvoiceNumber ?? "",
-          attachmentName: editVoucher.attachmentName,
-          attachmentUrls: editVoucher.attachmentUrls,
+          attachments: editVoucher.attachments,
         }
       : {
           direction,
@@ -146,10 +158,18 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
           poNumber: "",
           invoiceNumber: "",
           taxInvoiceNumber: "",
-          attachmentName: null,
-          attachmentUrls: null,
+          attachments: [],
         },
   });
+
+  // Pilihan bank dari Master Data > Company. Bank yang sudah tersimpan di PV
+  // lama tetap ditampilkan walau sudah dihapus dari daftar, biar edit PV
+  // lama gak tiba-tiba kehilangan isian bank-nya.
+  const { data: companyData } = useCompany();
+  const companyBanks = companyData?.data?.banks ?? DEFAULT_COMPANY_BANKS;
+  const savedSenderBank = editVoucher?.senderBank;
+  const senderBankOptions =
+    savedSenderBank && !companyBanks.includes(savedSenderBank) ? [...companyBanks, savedSenderBank] : companyBanks;
 
   const selectedDate = watch("date");
   const numberPreview = usePvNumberPreview(selectedDate, !editVoucher);
@@ -197,20 +217,57 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
     pphJasaPercent: Number(watch("pphJasaPercent")) || 0,
     pphFreelancePercent: Number(watch("pphFreelancePercent")) || 0,
   };
-  const totals = calculatePvTotals(
-    items.map((i) => ({ ...i, qty: Number(i.qty) || 0, unitPrice: Number(i.unitPrice) || 0 })),
-    rates
-  );
+  const numericItems = items.map((i) => ({ ...i, qty: Number(i.qty) || 0, unitPrice: Number(i.unitPrice) || 0 }));
+  const totals = calculatePvTotals(numericItems, rates);
+  const bases = taxBases(numericItems);
+
+  // Tarif pajak otomatis ikut item (port dari SiPV): ada item kena PPN ->
+  // PPN default, ada item Jasa -> PPh 23 default, ada Freelance -> PPh 21
+  // default; kalau item-nya gak ada, tarifnya 0. Berhenti otomatis begitu
+  // user ngubah tarif itu manual (mis. vendor non-PKP atau bebas PPh). Mode
+  // edit: tarif yang sudah tersimpan gak diutak-atik.
+  const rateTouched = useRef<Record<RateField, boolean>>({
+    ppnPercent: Boolean(editVoucher),
+    pphJasaPercent: Boolean(editVoucher),
+    pphFreelancePercent: Boolean(editVoucher),
+  });
+  const hasPpnBase = bases.ppn > 0;
+  const hasJasa = bases.jasa > 0;
+  const hasFreelance = bases.freelance > 0;
+  useEffect(() => {
+    const wanted: Record<RateField, number> = {
+      ppnPercent: hasPpnBase ? DEFAULT_RATES.ppnPercent : 0,
+      pphJasaPercent: hasJasa ? DEFAULT_RATES.pphJasaPercent : 0,
+      pphFreelancePercent: hasFreelance ? DEFAULT_RATES.pphFreelancePercent : 0,
+    };
+    (Object.keys(wanted) as RateField[]).forEach((field) => {
+      if (!rateTouched.current[field] && Number(getValues(field)) !== wanted[field]) {
+        setValue(field, wanted[field]);
+      }
+    });
+  }, [hasPpnBase, hasJasa, hasFreelance, getValues, setValue]);
+  const markRateTouched = (field: RateField) => () => {
+    rateTouched.current[field] = true;
+  };
+
+  // Ada item kena PPN tapi PPN 0% -> tanya dulu sebelum simpan (bisa lupa
+  // isi, bisa juga memang vendor non-PKP) - sama kayak SiPV.
+  const [pendingPpnConfirm, setPendingPpnConfirm] = useState<{ run: () => void } | null>(null);
+  const guardPpnZero = (values: PaymentVoucherFormValues, run: () => void) => {
+    if (taxBases(values.items).ppn > 0 && Number(values.ppnPercent) === 0) {
+      setPendingPpnConfirm({ run });
+      return;
+    }
+    run();
+  };
 
   const handleSelectParty = (name: string) => {
     setValue("partyName", name, { shouldValidate: true });
-    // Rekening lawan transaksi diisi otomatis dari master data: rekening
-    // vendor (penerima) buat PV Out, rekening customer (pengirim) buat PV In.
-    // Yang kosong di master data gak nimpa isian yang sudah diketik.
-    const matched =
-      direction === "out"
-        ? vendorsData?.data.find((v) => v.name === name)
-        : customersData?.data.find((c) => c.name === name);
+    // Rekening vendor (penerima) diisi otomatis buat PV Out. PV In sengaja
+    // gak ada field rekening - uang masuk dari luar, rekening pengirimnya
+    // biasanya gak diketahui. Yang kosong di master data gak nimpa isian.
+    if (direction !== "out") return;
+    const matched = vendorsData?.data.find((v) => v.name === name);
     if (matched) {
       if (matched.bankName) setValue("receiverBankName", matched.bankName);
       if (matched.bankAccountNumber) setValue("receiverAccountNumber", matched.bankAccountNumber);
@@ -246,33 +303,6 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
     }
   };
 
-  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      const previewUrls = await fileToPreviewDataUrls(file);
-      // Preview lokal langsung tampil dari data URL ini - instan, gak nunggu
-      // upload ke Storage selesai dulu.
-      setFreshAttachmentPreview(previewUrls);
-      const paths = await uploadAttachment.mutateAsync({ dataUrls: previewUrls, kind: "pv-attachment", baseName: file.name });
-      // Name & urls di-set bareng (bukan terpisah) - kalau upload di atas
-      // gagal duluan, name gak ikut ke-set jadi gak ada lampiran "hantu"
-      // (nama ada tapi filenya kosong, jadi gak ikut ke-print).
-      setValue("attachmentName", file.name);
-      setValue("attachmentUrls", paths);
-    } catch (err) {
-      toast.error(getErrorMessage(err, `Gagal membaca file "${file.name}" - coba file lain.`));
-      setFreshAttachmentPreview(null);
-      setValue("attachmentName", null);
-      setValue("attachmentUrls", null);
-    } finally {
-      // Reset supaya user bisa pilih file yang sama persis lagi nanti - tanpa
-      // ini, browser tidak nge-fire onChange kalau value-nya tidak berubah.
-      input.value = "";
-    }
-  };
-
   const buildPayload = (values: PaymentVoucherFormValues): PaymentVoucherPayload => ({
     ...values,
     receiverBankName: values.receiverBankName ?? "",
@@ -282,8 +312,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
     poNumber: values.poNumber || null,
     invoiceNumber: values.invoiceNumber || null,
     taxInvoiceNumber: values.taxInvoiceNumber || null,
-    attachmentName: values.attachmentName ?? null,
-    attachmentUrls: values.attachmentUrls ?? null,
+    attachments: values.attachments ?? [],
   });
 
   /**
@@ -336,7 +365,10 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
   };
 
   return (
-    <form onSubmit={handleSubmit(onSaveDraft)} className="space-y-6 pb-24">
+    <form
+      onSubmit={handleSubmit((values) => guardPpnZero(values, () => onSaveDraft(values)))}
+      className="space-y-6 pb-24"
+    >
       <Card>
         <CardHeader>
           <CardTitle>Informasi Voucher</CardTitle>
@@ -352,7 +384,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
                 <SelectValue placeholder="Pilih Bank" />
               </SelectTrigger>
               <SelectContent>
-                {companyBankOptions.map((bank) => (
+                {senderBankOptions.map((bank) => (
                   <SelectItem key={bank} value={bank}>
                     {bank}
                   </SelectItem>
@@ -415,9 +447,11 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="transfer">Transfer Bank</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="cheque">Cek / Giro</SelectItem>
+                    {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {PAYMENT_METHOD_LABELS[method]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -587,7 +621,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
                   min={0}
                   max={100}
                   className="h-8 w-16"
-                  {...register("ppnPercent")}
+                  {...register("ppnPercent", { onChange: markRateTouched("ppnPercent") })}
                 />
                 <span className="text-muted-foreground">%</span>
               </div>
@@ -602,7 +636,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
                   min={0}
                   max={100}
                   className="h-8 w-16"
-                  {...register("pphJasaPercent")}
+                  {...register("pphJasaPercent", { onChange: markRateTouched("pphJasaPercent") })}
                 />
                 <span className="text-muted-foreground">%</span>
               </div>
@@ -617,7 +651,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
                   min={0}
                   max={100}
                   className="h-8 w-16"
-                  {...register("pphFreelancePercent")}
+                  {...register("pphFreelancePercent", { onChange: markRateTouched("pphFreelancePercent") })}
                 />
                 <span className="text-muted-foreground">%</span>
               </div>
@@ -640,24 +674,19 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
 
           <div className="space-y-2">
             <Label htmlFor="attachment">Lampiran (Opsional)</Label>
-            <label
-              htmlFor="attachment"
-              className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:bg-accent"
-            >
-              <Paperclip className="h-4 w-4" />
-              {watch("attachmentName") || "Pilih file invoice/bukti (JPG, PNG, atau PDF)"}
-            </label>
             <p className="text-xs text-muted-foreground">
-              Kalau PDF, semua halamannya ikut ditampilkan & ke-print.
+              Bisa pilih beberapa file sekaligus (JPG, PNG, atau PDF). Kalau PDF, semua halamannya ikut
+              ditampilkan & ke-print.
             </p>
-            <input
+            <MultiFileUpload
               id="attachment"
-              type="file"
-              accept="image/png,image/jpeg,application/pdf"
-              className="hidden"
-              onChange={handleAttachmentChange}
+              files={watch("attachments") ?? []}
+              onChange={(files) => setValue("attachments", files, { shouldValidate: true })}
+              kind="pv-attachment"
+              placeholder="Tambah file invoice/bukti (JPG, PNG, atau PDF)"
+              altPrefix="Preview lampiran"
+              onUploadingChange={setIsUploadingAttachment}
             />
-            <FilePreviewThumbnails urls={attachmentPreviewUrls} altPrefix="Preview lampiran" />
           </div>
         </CardContent>
       </Card>
@@ -714,7 +743,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
           type="submit"
           variant="outline"
           isLoading={editVoucher ? updateVoucher.isPending : createVoucher.isPending}
-          disabled={isSubmittingForApproval || uploadAttachment.isPending}
+          disabled={isSubmittingForApproval || isUploadingAttachment}
         >
           <Save className="h-4 w-4" />
           {editVoucher ? "Simpan Perubahan" : "Simpan sebagai Draft"}
@@ -722,13 +751,25 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
         <Button
           type="button"
           isLoading={isSubmittingForApproval}
-          disabled={(editVoucher ? updateVoucher.isPending : createVoucher.isPending) || uploadAttachment.isPending}
-          onClick={handleSubmit(onSubmitForApproval)}
+          disabled={(editVoucher ? updateVoucher.isPending : createVoucher.isPending) || isUploadingAttachment}
+          onClick={handleSubmit((values) => guardPpnZero(values, () => void onSubmitForApproval(values)))}
         >
           <Send className="h-4 w-4" />
           {editVoucher ? "Ajukan Ulang untuk Approval" : "Ajukan untuk Approval"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingPpnConfirm)}
+        onOpenChange={(open) => !open && setPendingPpnConfirm(null)}
+        title="PPN masih 0%"
+        description={`Ada item kena pajak (DPP ${formatCurrency(bases.ppn)}) tapi PPN 0%. Lanjut simpan tanpa PPN (misalnya vendor non-PKP)? Pilih Batal untuk mengisi PPN dulu.`}
+        confirmLabel="Ya, tanpa PPN"
+        onConfirm={() => {
+          pendingPpnConfirm?.run();
+          setPendingPpnConfirm(null);
+        }}
+      />
     </form>
   );
 }

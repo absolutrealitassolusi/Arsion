@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { paymentVoucherService, type PaymentVoucherFilters } from "@/services/payment-voucher.service";
+import {
+  paymentVoucherService,
+  type PaymentProofPayload,
+  type PaymentVoucherFilters,
+} from "@/services/payment-voucher.service";
 import type { ApiErrorShape } from "@/lib/axios";
 import type { PaymentVoucherPayload } from "@/types/payment-voucher";
 
@@ -131,7 +135,7 @@ export function useMarkPaymentVoucherPaid(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => paymentVoucherService.markPaid(id),
+    mutationFn: (payload: PaymentProofPayload) => paymentVoucherService.markPaid(id, payload),
     onSuccess: () => {
       toast.success("Payment Voucher ditandai sudah dibayar");
       queryClient.invalidateQueries({ queryKey: paymentVoucherKeys.all });
@@ -169,13 +173,7 @@ export function useUploadPaymentProof(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      paymentProofFileName,
-      paymentProofUrls,
-    }: {
-      paymentProofFileName: string;
-      paymentProofUrls: string[];
-    }) => paymentVoucherService.uploadPaymentProof(id, paymentProofFileName, paymentProofUrls),
+    mutationFn: (payload: PaymentProofPayload) => paymentVoucherService.uploadPaymentProof(id, payload),
     onSuccess: () => {
       toast.success("Bukti pembayaran berhasil disimpan");
       queryClient.invalidateQueries({ queryKey: paymentVoucherKeys.all });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { companySchema } from "./company.schema";
+import { companySchema, parseBankLines } from "./company.schema";
 
 const validPayload = {
   name: "PT. Absolut Realitas Solusi",
@@ -39,6 +39,17 @@ describe("companySchema", () => {
   it("setting penomoran PV default ke format lama (45, 4 digit, bulanan) kalau gak dikirim", () => {
     const result = companySchema.parse(validPayload);
     expect(result).toMatchObject({ pvCode: "45", pvSeqLength: 4, pvResetMode: "monthly" });
+  });
+
+  it("daftar bank: default sama SiPV, minimal 1, gak boleh dobel", () => {
+    expect(companySchema.parse(validPayload).banks).toEqual(["Bank OCBC", "Bank Mandiri", "Bank BRI", "Petty Cash"]);
+    expect(companySchema.safeParse({ ...validPayload, banks: [] }).success).toBe(false);
+    expect(companySchema.safeParse({ ...validPayload, banks: ["BCA", "BCA"] }).success).toBe(false);
+    expect(companySchema.safeParse({ ...validPayload, banks: ["BCA", "Petty Cash"] }).success).toBe(true);
+  });
+
+  it("parseBankLines buang baris kosong & spasi", () => {
+    expect(parseBankLines("Bank BRI\n\n  Petty Cash  \r\n")).toEqual(["Bank BRI", "Petty Cash"]);
   });
 
   it("gagal kalau kode PV bukan angka atau panjang nomor urut di luar 3-6", () => {

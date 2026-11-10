@@ -7,7 +7,20 @@ export type PvStatus = "draft" | "submitted" | "approved" | "rejected" | "paid" 
  * Dipakai server (PATCH /cancel) dan UI (tombol Batalkan) biar aturannya sama.
  */
 export const CANCELLABLE_PV_STATUSES: PvStatus[] = ["draft", "submitted", "approved", "rejected"];
-export type PaymentMethod = "transfer" | "cash" | "cheque";
+export type PaymentMethod = "transfer" | "cash" | "cheque" | "giro";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  transfer: "Transfer Bank",
+  cash: "Tunai",
+  cheque: "Cek",
+  giro: "Giro",
+};
+
+/** 1 file dokumen (lampiran / bukti bayar) - `urls` = path Storage tiap halaman (PDF bisa banyak halaman). */
+export interface PvFile {
+  name: string;
+  urls: string[];
+}
 
 /** Barang kena PPN, Jasa kena PPh 23 (badan usaha), Freelance kena PPh 21 (perorangan), Non Pajak gak kena apa-apa. */
 export type ItemCategory = "barang" | "jasa" | "freelance" | "non_pajak";
@@ -124,6 +137,13 @@ export interface PaymentVoucher {
   taxProofFileName: string | null;
   taxProofUrls: string[] | null;
 
+  /** Daftar file lampiran & bukti bayar (bisa lebih dari 1). Kosong di endpoint list. */
+  attachments: PvFile[];
+  paymentProofs: PvFile[];
+  /** Kapan ditandai Dibayar (saat bukti pembayaran di-upload). Null = belum dibayar / PV lama. */
+  paidAt: string | null;
+  paymentNote: string | null;
+
   /**
    * Salinan (snapshot) tanda tangan user di momen status berubah - null kalau
    * belum pernah berubah ke status itu, ATAU baris lama dari sebelum fitur
@@ -159,8 +179,7 @@ export type PaymentVoucherPayload = Pick<
   | "poNumber"
   | "invoiceNumber"
   | "taxInvoiceNumber"
-  | "attachmentName"
-  | "attachmentUrls"
+  | "attachments"
 >;
 
 export interface PaymentVoucherListResponse {

@@ -1,7 +1,7 @@
 import { pgTable, pgEnum, text, timestamp, boolean, doublePrecision, integer, jsonb, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
-import type { PaymentVoucherItem, PaymentVoucherHistoryEntry } from "@/types/payment-voucher";
+import type { PaymentVoucherItem, PaymentVoucherHistoryEntry, PvFile } from "@/types/payment-voucher";
 import type { InvoiceItem, InvoiceHistoryEntry } from "@/types/invoice";
 
 export const userStatusEnum = pgEnum("UserStatus", ["active", "inactive"]);
@@ -10,7 +10,7 @@ export const customerStatusEnum = pgEnum("CustomerStatus", ["active", "inactive"
 export const projectStatusEnum = pgEnum("ProjectStatus", ["ongoing", "completed", "on_hold", "cancelled", "archived"]);
 export const pvDirectionEnum = pgEnum("PvDirection", ["in", "out"]);
 export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid", "cancelled"]);
-export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque"]);
+export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque", "giro"]);
 export const notificationTypeEnum = pgEnum("NotificationType", ["info", "success", "warning"]);
 export const invoiceStatusEnum = pgEnum("InvoiceStatus", ["draft", "sent", "paid"]);
 export const pvResetModeEnum = pgEnum("PvResetMode", ["monthly", "yearly", "never"]);
@@ -152,6 +152,16 @@ export const paymentVouchers = pgTable("PaymentVoucher", {
   paymentProofUrls: text("paymentProofUrls").array().notNull().default([]),
   taxProofFileName: text("taxProofFileName"),
   taxProofUrls: text("taxProofUrls").array().notNull().default([]),
+  // Daftar file per dokumen (bisa lebih dari 1 file, tiap file bisa banyak
+  // halaman). Kolom *Name/*Urls di atas tetap diisi otomatis dari sini
+  // (nama digabung, halaman diratakan) biar cetak/ZIP/PV lama tetap jalan -
+  // lihat src/lib/pv-files.ts.
+  attachments: jsonb("attachments").$type<PvFile[]>().notNull().default([]),
+  paymentProofs: jsonb("paymentProofs").$type<PvFile[]>().notNull().default([]),
+  // Kapan PV ditandai Dibayar (= bukti pembayaran di-upload) - diisi sekali,
+  // gak ikut berubah kalau PV-nya diubah lagi belakangan (beda dari updatedAt).
+  paidAt: timestamp("paidAt"),
+  paymentNote: text("paymentNote"),
   history: jsonb("history").$type<PaymentVoucherHistoryEntry[]>().notNull(),
   // Salinan User.signatureUrl PERSIS di momen status berubah (bukan referensi
   // live) - supaya kalau user ganti tanda tangannya belakangan, dokumen yang
@@ -207,6 +217,9 @@ export const company = pgTable("Company", {
   phone: text("phone").notNull(),
   email: text("email").notNull(),
   website: text("website").notNull().default(""),
+  // Rekening/kas milik perusahaan sendiri - pilihan "Bank Pengirim" (PV Out)
+  // / "Bank Penerima" (PV In) di form PV. Isi awal sama dengan SiPV.
+  banks: text("banks").array().notNull().default(["Bank OCBC", "Bank Mandiri", "Bank BRI", "Petty Cash"]),
   // Pengaturan penomoran PV (lihat src/lib/pv-voucher-number.ts) - format
   // nomornya YYMM + pvCode + nomor urut sepanjang pvSeqLength digit.
   pvCode: text("pvCode").notNull().default("45"),

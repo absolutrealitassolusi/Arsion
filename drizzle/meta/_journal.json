@@ -29,6 +29,20 @@
       "when": 1794294022712,
       "tag": "0003_pv_counter_cancel_master_data",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794297644444,
+      "tag": "0004_company_banks",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794298474042,
+      "tag": "0005_pv_files_paid_at_giro",
+      "breakpoints": true
     }
   ]
 }

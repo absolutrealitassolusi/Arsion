@@ -6,6 +6,7 @@ export interface Company {
   phone: string;
   email: string;
   website: string;
+  banks: string[];
   pvCode: string;
   pvSeqLength: number;
   pvResetMode: "monthly" | "yearly" | "never";

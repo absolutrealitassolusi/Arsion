@@ -4,13 +4,16 @@ import { db } from "@/lib/db";
 import { paymentVouchers } from "@/db/schema";
 import { requirePermission } from "@/lib/api-auth";
 import { serializePaymentVoucher } from "@/lib/serialize-payment-voucher";
+import { flattenPvFiles } from "@/lib/pv-files";
+import { paymentProofSchema } from "@/schemas/payment-voucher.schema";
 import { PERMISSIONS } from "@/config/permissions";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// PATCH /payment-vouchers/:id/payment-proof - cuma boleh kalau sudah "paid"
+// PATCH /payment-vouchers/:id/payment-proof - ganti/tambah bukti pembayaran &
+// catatan setelah PV dibayar. Tanggal Dibayar (paidAt) TIDAK ikut berubah.
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const auth = await requirePermission(PERMISSIONS.PV_PAY);
   if ("error" in auth) return auth.error;
@@ -27,16 +30,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const body = (await request.json()) as {
-    paymentProofFileName: string;
-    paymentProofUrls: string[];
-  };
+  const parsed = paymentProofSchema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { message: "Data tidak valid.", errors: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
 
+  const flattened = flattenPvFiles(parsed.data.paymentProofs);
   const [updated] = await db
     .update(paymentVouchers)
     .set({
-      paymentProofFileName: body.paymentProofFileName,
-      paymentProofUrls: body.paymentProofUrls,
+      paymentProofs: parsed.data.paymentProofs,
+      paymentProofFileName: flattened.name,
+      paymentProofUrls: flattened.urls,
+      ...(parsed.data.paymentNote !== undefined ? { paymentNote: parsed.data.paymentNote || null } : {}),
     })
     .where(eq(paymentVouchers.id, id))
     .returning();

@@ -4,8 +4,14 @@ import type {
   PaymentVoucherListResponse,
   PaymentVoucherPayload,
   PvDirection,
+  PvFile,
   PvStatus,
 } from "@/types/payment-voucher";
+
+export interface PaymentProofPayload {
+  paymentProofs: PvFile[];
+  paymentNote?: string;
+}
 
 export interface PaymentVoucherFilters {
   direction?: PvDirection;
@@ -67,8 +73,9 @@ export const paymentVoucherService = {
     return data;
   },
 
-  async markPaid(id: string): Promise<PaymentVoucherDetailResponse> {
-    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/pay`);
+  /** Bukti pembayaran wajib - Tanggal Dibayar dicatat server saat ini juga. */
+  async markPaid(id: string, payload: PaymentProofPayload): Promise<PaymentVoucherDetailResponse> {
+    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/pay`, payload);
     return data;
   },
 
@@ -88,15 +95,8 @@ export const paymentVoucherService = {
   },
 
   /** Cuma boleh dipanggil kalau status PV sudah "paid" - lihat mock-adapter. */
-  async uploadPaymentProof(
-    id: string,
-    paymentProofFileName: string,
-    paymentProofUrls: string[]
-  ): Promise<PaymentVoucherDetailResponse> {
-    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/payment-proof`, {
-      paymentProofFileName,
-      paymentProofUrls,
-    });
+  async uploadPaymentProof(id: string, payload: PaymentProofPayload): Promise<PaymentVoucherDetailResponse> {
+    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/payment-proof`, payload);
     return data;
   },
 

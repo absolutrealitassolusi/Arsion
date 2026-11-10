@@ -5,7 +5,9 @@ import type {
   PaymentMethod,
   PvDirection,
   PvStatus,
+  PvFile,
 } from "@/types/payment-voucher";
+import { pvFilesFromRow } from "@/lib/pv-files";
 
 interface PrismaPaymentVoucher {
   id: string;
@@ -41,6 +43,10 @@ interface PrismaPaymentVoucher {
   paymentProofUrls: string[];
   taxProofFileName: string | null;
   taxProofUrls: string[];
+  attachments: unknown;
+  paymentProofs: unknown;
+  paidAt: Date | null;
+  paymentNote: string | null;
   preparedSignatureSnapshot: string | null;
   approvedSignatureSnapshot: string | null;
   paidSignatureSnapshot: string | null;
@@ -91,6 +97,10 @@ export function serializePaymentVoucher(voucher: PrismaPaymentVoucher): ApiPayme
     paymentProofUrls: urlsOrNull(voucher.paymentProofUrls),
     taxProofFileName: voucher.taxProofFileName,
     taxProofUrls: urlsOrNull(voucher.taxProofUrls),
+    attachments: pvFilesFromRow(voucher.attachments as PvFile[], voucher.attachmentName, voucher.attachmentUrls),
+    paymentProofs: pvFilesFromRow(voucher.paymentProofs as PvFile[], voucher.paymentProofFileName, voucher.paymentProofUrls),
+    paidAt: voucher.paidAt?.toISOString() ?? null,
+    paymentNote: voucher.paymentNote,
     preparedSignatureSnapshot: voucher.preparedSignatureSnapshot,
     approvedSignatureSnapshot: voucher.approvedSignatureSnapshot,
     paidSignatureSnapshot: voucher.paidSignatureSnapshot,

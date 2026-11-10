@@ -8,6 +8,7 @@ interface PrismaCompany {
   phone: string;
   email: string;
   website: string;
+  banks: string[];
   pvCode: string;
   pvSeqLength: number;
   pvResetMode: "monthly" | "yearly" | "never";
@@ -24,6 +25,7 @@ export function serializeCompany(company: PrismaCompany): ApiCompany {
     phone: company.phone,
     email: company.email,
     website: company.website,
+    banks: company.banks,
     pvCode: company.pvCode,
     pvSeqLength: company.pvSeqLength,
     pvResetMode: company.pvResetMode,

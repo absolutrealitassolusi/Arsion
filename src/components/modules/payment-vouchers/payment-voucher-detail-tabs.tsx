@@ -24,7 +24,9 @@ import {
 import {
   CANCELLABLE_PV_STATUSES,
   ITEM_CATEGORY_LABELS,
+  PAYMENT_METHOD_LABELS,
   type PaymentVoucher,
+  type PvFile,
   type PvStatus,
 } from "@/types/payment-voucher";
 import {
@@ -48,6 +50,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { fileToPreviewDataUrls } from "@/lib/file-to-data-url";
 import { PaymentVoucherPrint } from "@/components/modules/payment-vouchers/payment-voucher-print";
 import { FilePreviewThumbnails } from "@/components/modules/payment-vouchers/file-preview-thumbnails";
+import { MultiFileUpload } from "@/components/modules/payment-vouchers/multi-file-upload";
 
 interface FileInput {
   name: string;
@@ -73,11 +76,7 @@ const historyStatusLabel: Record<PvStatus, string> = {
   cancelled: "Dibatalkan",
 };
 
-const paymentMethodLabel: Record<string, string> = {
-  transfer: "Transfer Bank",
-  cash: "Cash",
-  cheque: "Cek / Giro",
-};
+const paymentMethodLabel: Record<string, string> = PAYMENT_METHOD_LABELS;
 
 const tabs = [
   { key: "info", label: "Info" },
@@ -227,7 +226,6 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   const payVoucher = useMarkPaymentVoucherPaid(voucherId);
   const updateTaxInvoice = useUpdateTaxInvoice(voucherId);
   const uploadPaymentProof = useUploadPaymentProof(voucherId);
-  const uploadPaymentProofFile = useUploadDataUrls();
   const uploadTaxProofFile = useUploadDataUrls();
 
   const currentUser = useCurrentUser();
@@ -236,11 +234,14 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
 
   const [taxInvoiceInput, setTaxInvoiceInput] = useState("");
   const [taxProofInput, setTaxProofInput] = useState<FileInput | null>(null);
-  const [paymentProofInput, setPaymentProofInput] = useState<FileInput | null>(null);
+  // Bukti pembayaran (bisa lebih dari 1 file) + catatan pembayaran - wajib
+  // minimal 1 file sebelum bisa "Tandai Sudah Dibayar".
+  const [paymentProofFiles, setPaymentProofFiles] = useState<PvFile[]>([]);
+  const [paymentNoteInput, setPaymentNoteInput] = useState("");
+  const [isUploadingPaymentProof, setIsUploadingPaymentProof] = useState(false);
   // Preview lokal instan pas user baru pilih file (data URL) - beda dari
-  // `*ProofInput.urls` (path Storage yang beneran disimpan). null = belum
+  // `taxProofInput.urls` (path Storage yang beneran disimpan). null = belum
   // ganti file baru sejak PV ini dibuka, preview pakai yang sudah tersimpan.
-  const [freshPaymentProofPreview, setFreshPaymentProofPreview] = useState<string[] | null>(null);
   const [freshTaxProofPreview, setFreshTaxProofPreview] = useState<string[] | null>(null);
 
   const voucher = data?.data;
@@ -277,7 +278,6 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   const printTaxProofUrls = notNull(existingTaxProofPreview.data);
   // Buat thumbnail kecil di bawah tombol upload - boleh langsung reflect
   // file yang baru dipilih (instan), beda dari preview dokumen besar di atas.
-  const paymentProofPreviewUrls = freshPaymentProofPreview ?? printPaymentProofUrls;
   const taxProofPreviewUrls = freshTaxProofPreview ?? printTaxProofUrls;
 
   useEffect(() => {
@@ -288,34 +288,11 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
           ? { name: voucher.taxProofFileName, urls: voucher.taxProofUrls }
           : null
       );
-      setPaymentProofInput(
-        voucher.paymentProofFileName && voucher.paymentProofUrls
-          ? { name: voucher.paymentProofFileName, urls: voucher.paymentProofUrls }
-          : null
-      );
-      setFreshPaymentProofPreview(null);
+      setPaymentProofFiles(voucher.paymentProofs);
+      setPaymentNoteInput(voucher.paymentNote ?? "");
       setFreshTaxProofPreview(null);
     }
   }, [voucher]);
-
-  const handlePaymentProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      const previewUrls = await fileToPreviewDataUrls(file);
-      setFreshPaymentProofPreview(previewUrls);
-      const paths = await uploadPaymentProofFile.mutateAsync({ dataUrls: previewUrls, kind: "pv-payment-proof", baseName: file.name });
-      setPaymentProofInput({ name: file.name, urls: paths });
-    } catch (err) {
-      toast.error(getErrorMessage(err, `Gagal membaca file "${file.name}" - coba file lain.`));
-      setFreshPaymentProofPreview(null);
-    } finally {
-      // Reset supaya user bisa pilih file yang sama persis lagi nanti - tanpa
-      // ini, browser tidak nge-fire onChange kalau value-nya tidak berubah.
-      input.value = "";
-    }
-  };
 
   const handleTaxProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
@@ -416,20 +393,14 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
     },
     pay: {
       title: "Tandai Payment Voucher ini sudah dibayar?",
-      description: "Pastikan pembayaran sudah benar-benar dilakukan sebelum menandai ini.",
+      description:
+        "Pastikan pembayaran sudah benar-benar dilakukan. Tanggal Dibayar dicatat hari ini, bersama bukti pembayaran yang di-upload.",
       confirmLabel: "Tandai Dibayar",
       run: () =>
-        payVoucher.mutate(undefined, {
-          onSuccess: () => {
-            if (paymentProofInput) {
-              uploadPaymentProof.mutate({
-                paymentProofFileName: paymentProofInput.name,
-                paymentProofUrls: paymentProofInput.urls,
-              });
-            }
-            if (backToListPath) router.push(backToListPath);
-          },
-        }),
+        payVoucher.mutate(
+          { paymentProofs: paymentProofFiles, paymentNote: paymentNoteInput.trim() || undefined },
+          { onSuccess: () => backToListPath && router.push(backToListPath) }
+        ),
     },
   };
 
@@ -612,6 +583,18 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
                   <dt className="text-xs text-muted-foreground">Total Dibayarkan</dt>
                   <dd className="text-sm font-medium">{formatCurrency(voucher.totalAmount)}</dd>
                 </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Tanggal Dibayar</dt>
+                  <dd className="text-sm font-medium">
+                    {voucher.paidAt ? formatDateTime(voucher.paidAt) : voucher.status === "paid" ? "-" : "Belum dibayar"}
+                  </dd>
+                </div>
+                {voucher.status === "paid" && voucher.paymentNote && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">Catatan Pembayaran</dt>
+                    <dd className="text-sm font-medium">{voucher.paymentNote}</dd>
+                  </div>
+                )}
               </dl>
 
               {voucher.status === "approved" && !canPay && (
@@ -623,50 +606,63 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
                 <p className="text-sm text-success">Payment Voucher ini sudah dibayar.</p>
               )}
               {["approved", "paid"].includes(voucher.status) && canPay && (
-                <div className="space-y-2">
-                  <Label htmlFor="paymentProof">Bukti Pembayaran</Label>
-                  <div className="flex gap-2">
-                    <label
-                      htmlFor="paymentProof"
-                      className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:bg-accent"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                      {paymentProofInput?.name || "Pilih file bukti transfer/pembayaran (JPG, PNG, atau PDF)"}
-                    </label>
-                    <input
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentProof">
+                      Bukti Pembayaran{voucher.status === "approved" && <span className="text-destructive"> *</span>}
+                    </Label>
+                    <MultiFileUpload
                       id="paymentProof"
-                      type="file"
-                      accept="image/png,image/jpeg,application/pdf"
-                      className="hidden"
-                      onChange={handlePaymentProofChange}
+                      files={paymentProofFiles}
+                      onChange={setPaymentProofFiles}
+                      kind="pv-payment-proof"
+                      placeholder="Tambah bukti transfer/pembayaran (JPG, PNG, atau PDF)"
+                      altPrefix="Preview bukti pembayaran"
+                      onUploadingChange={setIsUploadingPaymentProof}
                     />
-                    {voucher.status === "paid" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        isLoading={uploadPaymentProof.isPending}
-                        disabled={!paymentProofInput || uploadPaymentProofFile.isPending}
-                        onClick={() =>
-                          paymentProofInput &&
-                          uploadPaymentProof.mutate({
-                            paymentProofFileName: paymentProofInput.name,
-                            paymentProofUrls: paymentProofInput.urls,
-                          })
-                        }
-                      >
-                        <Save className="h-4 w-4" />
-                        Simpan
-                      </Button>
-                    )}
                   </div>
-                  <FilePreviewThumbnails urls={paymentProofPreviewUrls} altPrefix="Preview bukti pembayaran" />
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentNote">Catatan Pembayaran (Opsional)</Label>
+                    <Textarea
+                      id="paymentNote"
+                      rows={2}
+                      placeholder="Contoh: Transfer via KlikBCA, ref. 123456"
+                      value={paymentNoteInput}
+                      onChange={(e) => setPaymentNoteInput(e.target.value)}
+                    />
+                  </div>
+                  {voucher.status === "paid" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      isLoading={uploadPaymentProof.isPending}
+                      disabled={paymentProofFiles.length === 0 || isUploadingPaymentProof}
+                      onClick={() =>
+                        uploadPaymentProof.mutate({
+                          paymentProofs: paymentProofFiles,
+                          paymentNote: paymentNoteInput.trim(),
+                        })
+                      }
+                    >
+                      <Save className="h-4 w-4" />
+                      Simpan Bukti & Catatan
+                    </Button>
+                  )}
                 </div>
               )}
               {voucher.status === "approved" && canPay && (
-                <Button onClick={() => setPendingAction("pay")}>
-                  <Wallet className="h-4 w-4" />
-                  Tandai Sudah Dibayar
-                </Button>
+                <div className="space-y-1">
+                  <Button
+                    onClick={() => setPendingAction("pay")}
+                    disabled={paymentProofFiles.length === 0 || isUploadingPaymentProof}
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Tandai Sudah Dibayar
+                  </Button>
+                  {paymentProofFiles.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Upload bukti pembayaran dulu untuk menandai PV ini dibayar.</p>
+                  )}
+                </div>
               )}
               {["draft", "submitted", "rejected"].includes(voucher.status) && (
                 <p className="text-sm text-muted-foreground">

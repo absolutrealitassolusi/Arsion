@@ -49,9 +49,10 @@ export function DashboardOverview() {
   const unpaidInvoiceAmount = vouchers
     .filter((v) => v.direction === "out" && v.status === "approved")
     .reduce((sum, v) => sum + v.totalAmount, 0);
-  // Diperkirakan dari updatedAt PV berstatus "paid" - itu ke-update pas ditandai dibayar.
+  // Pakai Tanggal Dibayar (paidAt). PV lama dari sebelum kolom itu ada
+  // (paidAt null) masih diperkirakan dari updatedAt.
   const paidThisMonthAmount = vouchers
-    .filter((v) => v.status === "paid" && isSameMonth(v.updatedAt, now))
+    .filter((v) => v.status === "paid" && isSameMonth(v.paidAt ?? v.updatedAt, now))
     .reduce((sum, v) => sum + v.totalAmount, 0);
 
   const recentVouchers = [...vouchers]

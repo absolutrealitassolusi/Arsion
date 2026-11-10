@@ -9,6 +9,7 @@ import { nextVoucherNumber } from "@/lib/pv-voucher-number";
 import { paymentVoucherSchema } from "@/schemas/payment-voucher.schema";
 import { PERMISSIONS } from "@/config/permissions";
 import { calculatePvTotals } from "@/types/payment-voucher";
+import { flattenPvFiles } from "@/lib/pv-files";
 import type { PvDirection, PvStatus } from "@/types/payment-voucher";
 
 export async function GET(request: NextRequest) {
@@ -64,6 +65,8 @@ export async function GET(request: NextRequest) {
       preparedBy: paymentVouchers.preparedBy,
       approvedBy: paymentVouchers.approvedBy,
       paidBy: paymentVouchers.paidBy,
+      paidAt: paymentVouchers.paidAt,
+      paymentNote: paymentVouchers.paymentNote,
       paymentProofFileName: paymentVouchers.paymentProofFileName,
       taxProofFileName: paymentVouchers.taxProofFileName,
       history: paymentVouchers.history,
@@ -80,6 +83,8 @@ export async function GET(request: NextRequest) {
       attachmentUrls: [],
       paymentProofUrls: [],
       taxProofUrls: [],
+      attachments: [],
+      paymentProofs: [],
       preparedSignatureSnapshot: null,
       approvedSignatureSnapshot: null,
       paidSignatureSnapshot: null,
@@ -139,8 +144,9 @@ export async function POST(request: NextRequest) {
         poNumber: payload.poNumber || null,
         invoiceNumber: payload.invoiceNumber || null,
         taxInvoiceNumber: payload.taxInvoiceNumber || null,
-        attachmentName: payload.attachmentName ?? null,
-        attachmentUrls: payload.attachmentUrls ?? [],
+        attachmentName: flattenPvFiles(payload.attachments).name,
+        attachments: payload.attachments,
+        attachmentUrls: flattenPvFiles(payload.attachments).urls,
         status: "draft",
         preparedBy: auth.user.name,
         preparedSignatureSnapshot: preparer?.signatureUrl ?? null,

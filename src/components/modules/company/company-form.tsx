@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
@@ -11,6 +12,8 @@ import { FormField } from "@/components/shared/form-field";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
   companySchema,
+  DEFAULT_COMPANY_BANKS,
+  parseBankLines,
   PV_RESET_MODES,
   PV_RESET_MODE_LABELS,
   type CompanyFormValues,
@@ -26,6 +29,7 @@ const emptyValues: CompanyFormValues = {
   phone: "",
   email: "",
   website: "",
+  banks: DEFAULT_COMPANY_BANKS,
   pvCode: "45",
   pvSeqLength: 4,
   pvResetMode: "monthly",
@@ -64,12 +68,18 @@ export function CompanyForm() {
           phone: company.phone,
           email: company.email,
           website: company.website,
+          banks: company.banks,
           pvCode: company.pvCode,
           pvSeqLength: company.pvSeqLength,
           pvResetMode: company.pvResetMode,
         }
       : emptyValues,
   });
+
+  // Textarea "satu bank per baris" - teks mentahnya disimpan lokal (biar baris
+  // kosong yang lagi diketik gak langsung hilang), versi array-nya yang masuk form.
+  const [banksText, setBanksText] = useState<string | null>(null);
+  const banksTextValue = banksText ?? (company?.banks ?? DEFAULT_COMPANY_BANKS).join("\n");
 
   const onSubmit = (values: CompanyFormValues) => {
     updateCompany.mutate(values);
@@ -151,6 +161,25 @@ export function CompanyForm() {
             error={errors.website?.message}
             {...register("website")}
           />
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="banks">Daftar Bank Perusahaan</Label>
+            <Textarea
+              id="banks"
+              rows={4}
+              placeholder={"Bank OCBC\nBank Mandiri\nBank BRI\nPetty Cash"}
+              disabled={!canEdit}
+              value={banksTextValue}
+              onChange={(e) => {
+                setBanksText(e.target.value);
+                setValue("banks", parseBankLines(e.target.value), { shouldValidate: true });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Satu bank per baris. Jadi pilihan Bank Pengirim (PV Out) dan Bank Penerima (PV In) di form PV.
+            </p>
+            {errors.banks && <p className="text-xs text-destructive">{errors.banks.message ?? errors.banks.root?.message}</p>}
+          </div>
 
           <div className="space-y-1 border-t pt-6 sm:col-span-2">
             <h3 className="text-sm font-semibold">Penomoran Payment Voucher</h3>

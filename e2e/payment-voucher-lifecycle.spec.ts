@@ -11,7 +11,7 @@ test("PV lifecycle penuh: buat -> ajukan -> approve -> tandai dibayar", async ({
   await page.goto("/finance/pv/pv-out/create");
 
   await page.getByLabel("Bank Pengirim").click();
-  await page.getByRole("option", { name: "BRI - Rekening Operasional" }).click();
+  await page.getByRole("option", { name: "Bank BRI" }).click();
 
   // Pilih vendor yang SUDAH ada di data seed (PT Sumber Makmur) - jangan
   // ngetik nama baru, supaya gak ikut bikin record Vendor baru yang harus
@@ -49,6 +49,17 @@ test("PV lifecycle penuh: buat -> ajukan -> approve -> tandai dibayar", async ({
     await expect(page.getByText("Disetujui", { exact: true }).last()).toBeVisible();
 
     await page.getByRole("button", { name: "Payment" }).click();
+    // Bukti pembayaran wajib sebelum "Tandai Sudah Dibayar" bisa diklik -
+    // PNG 1x1 piksel cukup buat lolos validasi tipe/ukuran.
+    await page.locator("#paymentProof").setInputFiles({
+      name: "bukti-e2e.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        "base64"
+      ),
+    });
+    await expect(page.getByText("bukti-e2e.png")).toBeVisible();
     await page.getByRole("button", { name: "Tandai Sudah Dibayar" }).click();
     await page.getByRole("button", { name: "Tandai Dibayar" }).click();
     await expect(page.getByText("Dibayar", { exact: true }).last()).toBeVisible();

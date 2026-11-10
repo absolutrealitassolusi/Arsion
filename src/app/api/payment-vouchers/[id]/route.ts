@@ -8,6 +8,7 @@ import { logActivity } from "@/lib/activity-log";
 import { paymentVoucherSchema } from "@/schemas/payment-voucher.schema";
 import { PERMISSIONS } from "@/config/permissions";
 import { calculatePvTotals } from "@/types/payment-voucher";
+import { flattenPvFiles } from "@/lib/pv-files";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -104,8 +105,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       poNumber: payload.poNumber || null,
       invoiceNumber: payload.invoiceNumber || null,
       taxInvoiceNumber: payload.taxInvoiceNumber || null,
-      attachmentName: payload.attachmentName ?? null,
-      attachmentUrls: payload.attachmentUrls ?? [],
+      attachmentName: flattenPvFiles(payload.attachments).name,
+      attachments: payload.attachments,
+      attachmentUrls: flattenPvFiles(payload.attachments).urls,
       status: "draft",
       preparedSignatureSnapshot: preparer?.signatureUrl ?? null,
       history,

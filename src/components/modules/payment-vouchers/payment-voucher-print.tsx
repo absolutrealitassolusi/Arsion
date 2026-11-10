@@ -3,15 +3,11 @@
 import { useState } from "react";
 import { COMPANY } from "@/config/company";
 import { useCompany } from "@/hooks/use-company";
-import type { PaymentVoucher } from "@/types/payment-voucher";
+import { PAYMENT_METHOD_LABELS, type PaymentVoucher } from "@/types/payment-voucher";
 import { cn, formatDateDMY } from "@/lib/utils";
 import { terbilangRupiah } from "@/lib/terbilang";
 
-const paymentMethodLabel: Record<string, string> = {
-  transfer: "Transfer Bank",
-  cash: "Cash",
-  cheque: "Cek / Giro",
-};
+const paymentMethodLabel: Record<string, string> = PAYMENT_METHOD_LABELS;
 
 interface PaymentVoucherPrintProps {
   voucher: PaymentVoucher;

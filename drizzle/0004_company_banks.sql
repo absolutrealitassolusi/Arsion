@@ -1,0 +1,1 @@
+ALTER TABLE "Company" ADD COLUMN "banks" text[] DEFAULT '{"Bank OCBC","Bank Mandiri","Bank BRI","Petty Cash"}' NOT NULL;
