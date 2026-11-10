@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { paymentVouchers, notifications, users } from "@/db/schema";
 import { serializePaymentVoucher } from "@/lib/serialize-payment-voucher";
@@ -12,6 +12,7 @@ const ACTIVITY_ACTION_FOR: Partial<Record<PvStatus, string>> = {
   approved: "Approve PV",
   rejected: "Reject PV",
   paid: "Tandai PV Dibayar",
+  cancelled: "Batalkan PV",
 };
 
 /** Kolom snapshot yang perlu diisi per status baru - null kalau status itu gak nampilin blok tanda tangan di cetakan. */
@@ -55,6 +56,12 @@ function notificationCopyFor(
         description: `${voucher.id} (${voucher.partyName}) ditandai sudah dibayar oleh ${by}.`,
         type: "success",
       };
+    case "cancelled":
+      return {
+        title: "Payment Voucher dibatalkan",
+        description: `${voucher.id} (${voucher.partyName}) dibatalkan oleh ${by}${note ? ` - ${note}` : ""}.`,
+        type: "warning",
+      };
     default:
       return null;
   }
@@ -72,7 +79,7 @@ function notificationCopyFor(
  */
 export async function transitionPaymentVoucher(
   id: string,
-  requiredStatus: PvStatus,
+  requiredStatus: PvStatus | PvStatus[],
   newStatus: PvStatus,
   errorMessage: string,
   by: string,
@@ -83,7 +90,8 @@ export async function transitionPaymentVoucher(
   if (!current) {
     return NextResponse.json({ message: "Payment Voucher tidak ditemukan" }, { status: 404 });
   }
-  if (current.status !== requiredStatus) {
+  const allowedStatuses = Array.isArray(requiredStatus) ? requiredStatus : [requiredStatus];
+  if (!allowedStatuses.includes(current.status)) {
     return NextResponse.json({ message: errorMessage }, { status: 400 });
   }
 
@@ -102,11 +110,21 @@ export async function transitionPaymentVoucher(
     signatureSnapshot[snapshotColumn] = actingUser?.signatureUrl ?? null;
   }
 
+  // `status = status lama` ikut jadi syarat UPDATE - kalau di sela cek di atas
+  // dan update ini ada orang lain yang sudah mengubah status PV yang sama
+  // (mis. dua approver klik barengan), update-nya gak kena row apapun dan
+  // ditolak, bukan menimpa diam-diam.
   const [updated] = await db
     .update(paymentVouchers)
     .set({ ...extra, ...signatureSnapshot, status: newStatus, history })
-    .where(eq(paymentVouchers.id, id))
+    .where(and(eq(paymentVouchers.id, id), eq(paymentVouchers.status, current.status)))
     .returning();
+  if (!updated) {
+    return NextResponse.json(
+      { message: "Status Payment Voucher ini baru saja diubah orang lain. Muat ulang halaman lalu coba lagi." },
+      { status: 409 }
+    );
+  }
 
   const notificationCopy = notificationCopyFor(newStatus, current, by, note);
   if (notificationCopy) {
@@ -120,5 +138,5 @@ export async function transitionPaymentVoucher(
     await logActivity(by, activityAction, `${current.id} (${current.partyName})`);
   }
 
-  return NextResponse.json({ data: serializePaymentVoucher(updated!) });
+  return NextResponse.json({ data: serializePaymentVoucher(updated) });
 }

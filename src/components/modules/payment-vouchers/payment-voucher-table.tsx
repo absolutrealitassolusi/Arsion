@@ -44,6 +44,7 @@ const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "defau
   approved: { label: "Disetujui", variant: "success" },
   rejected: { label: "Ditolak", variant: "destructive" },
   paid: { label: "Dibayar", variant: "success" },
+  cancelled: { label: "Dibatalkan", variant: "secondary" },
 };
 
 export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
@@ -86,6 +87,7 @@ export function PaymentVoucherTable({ direction }: PaymentVoucherTableProps) {
             <SelectItem value="approved">Disetujui</SelectItem>
             <SelectItem value="rejected">Ditolak</SelectItem>
             <SelectItem value="paid">Dibayar</SelectItem>
+            <SelectItem value="cancelled">Dibatalkan</SelectItem>
           </SelectContent>
         </Select>
       </div>

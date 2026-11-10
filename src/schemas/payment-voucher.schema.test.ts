@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paymentVoucherSchema } from "./payment-voucher.schema";
+import { paymentVoucherSchema, todayInJakarta } from "./payment-voucher.schema";
 
 const validPayload = {
   direction: "out" as const,
@@ -78,5 +78,27 @@ describe("paymentVoucherSchema", () => {
   it("field opsional (projectNumber, poNumber, dll) boleh null atau gak diisi sama sekali", () => {
     expect(paymentVoucherSchema.safeParse({ ...validPayload, projectNumber: null }).success).toBe(true);
     expect(paymentVoucherSchema.safeParse(validPayload).success).toBe(true);
+  });
+
+  it("tanggal hari ini boleh, tanggal besok ditolak", () => {
+    const today = todayInJakarta();
+    const tomorrow = todayInJakarta(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    expect(paymentVoucherSchema.safeParse({ ...validPayload, date: today }).success).toBe(true);
+    const result = paymentVoucherSchema.safeParse({ ...validPayload, date: tomorrow });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.date).toContain("Tanggal PV tidak boleh lebih maju dari hari ini");
+    }
+  });
+
+  it("tanggal wajib format YYYY-MM-DD", () => {
+    expect(paymentVoucherSchema.safeParse({ ...validPayload, date: "07/08/2026" }).success).toBe(false);
+  });
+});
+
+describe("todayInJakarta", () => {
+  it("pakai tanggal WIB, bukan UTC (jam 20:00 UTC = besoknya di WIB)", () => {
+    expect(todayInJakarta(new Date("2026-11-10T20:00:00Z"))).toBe("2026-11-11");
+    expect(todayInJakarta(new Date("2026-11-10T10:00:00Z"))).toBe("2026-11-10");
   });
 });

@@ -7,6 +7,7 @@ import { serializeProject } from "@/lib/serialize-project";
 import { logActivity } from "@/lib/activity-log";
 import { projectSchema } from "@/schemas/project.schema";
 import { PERMISSIONS } from "@/config/permissions";
+import { isUniqueViolation, nextCodeFor } from "@/lib/master-code-db";
 
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
@@ -49,21 +50,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const [existing] = await db.select().from(projects).where(eq(projects.id, parsed.data.code)).limit(1);
+  const { code: requestedCode, ...rest } = parsed.data;
+  // Kode kosong = diisi otomatis (+1 dari kode terbesar, lihat src/lib/next-master-code.ts).
+  const code = requestedCode || (await nextCodeFor("project"));
+
+  const [existing] = await db.select().from(projects).where(eq(projects.id, code)).limit(1);
   if (existing) {
     return NextResponse.json({ message: "Kode project sudah dipakai." }, { status: 409 });
   }
 
-  const { code, ...rest } = parsed.data;
-  const [project] = await db
-    .insert(projects)
-    .values({
-      ...rest,
-      id: code,
-      startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
-      endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
-    })
-    .returning();
+  let project: typeof projects.$inferSelect | undefined;
+  try {
+    [project] = await db
+      .insert(projects)
+      .values({
+        ...rest,
+        id: code,
+        startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
+        endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
+      })
+      .returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return NextResponse.json({ message: "Kode project baru saja dipakai orang lain, coba simpan lagi." }, { status: 409 });
+    }
+    throw err;
+  }
   await logActivity(auth.user.name, "Tambah Project", `${project!.name} (${project!.id})`);
   return NextResponse.json({ data: serializeProject(project!) }, { status: 201 });
 }

@@ -33,6 +33,7 @@ const statusLabels: Record<PvStatus, string> = {
   approved: "Disetujui",
   rejected: "Ditolak",
   paid: "Dibayar",
+  cancelled: "Dibatalkan",
 };
 
 function currentMonthValue() {
@@ -54,7 +55,8 @@ export function TaxReport() {
   const vouchers = useMemo(() => {
     return (data?.data ?? []).filter((v) => {
       if (month && !v.date.startsWith(month)) return false;
-      if (status && v.status !== status) return false;
+      // PV Dibatalkan gak ikut dihitung pajaknya, kecuali memang difilter "Dibatalkan".
+      if (status ? v.status !== status : v.status === "cancelled") return false;
       return true;
     });
   }, [data, month, status]);

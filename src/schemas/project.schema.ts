@@ -6,10 +6,11 @@ export const projectSchema = z.object({
     .min(1, "Nama project wajib diisi")
     .min(3, "Nama project minimal 3 karakter")
     .max(100, "Nama project maksimal 100 karakter"),
+  // Boleh dikosongkan - server otomatis isi kode berikutnya (src/lib/next-master-code.ts).
   code: z
     .string()
-    .min(1, "Kode project wajib diisi")
-    .regex(/^[A-Z0-9-]+$/, "Kode project hanya boleh huruf kapital, angka, dan tanda minus"),
+    .regex(/^[A-Z0-9-]*$/, "Kode project hanya boleh huruf kapital, angka, dan tanda minus")
+    .default(""),
   description: z.string().optional(),
   clientName: z.string().optional(),
   picName: z.string().optional(),

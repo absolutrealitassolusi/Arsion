@@ -9,9 +9,20 @@ export const paymentVoucherItemSchema = z.object({
     .min(0, "Harga satuan tidak boleh negatif"),
 });
 
+/** Tanggal hari ini (YYYY-MM-DD) di zona waktu WIB - dipakai server & browser biar hasilnya sama. */
+export function todayInJakarta(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(now);
+}
+
 export const paymentVoucherSchema = z.object({
   direction: z.enum(["in", "out"], { required_error: "Arah transaksi wajib dipilih" }),
-  date: z.string().min(1, "Tanggal wajib diisi"),
+  date: z
+    .string()
+    .min(1, "Tanggal wajib diisi")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal tidak valid")
+    // Nomor PV ikut YYMM tanggal PV - tanggal maju bikin nomor bulan depan
+    // kepakai duluan, jadi ditolak (sama kayak aturan di SiPV).
+    .refine((value) => value <= todayInJakarta(), "Tanggal PV tidak boleh lebih maju dari hari ini"),
   senderBank: z.string().min(1, "Bank pengirim wajib dipilih"),
   partyName: z.string().min(1, "Nama vendor/customer wajib diisi"),
   description: z.string().min(1, "Keterangan wajib diisi"),

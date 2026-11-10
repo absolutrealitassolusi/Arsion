@@ -35,9 +35,10 @@ const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "defau
   approved: { label: "Disetujui", variant: "success" },
   rejected: { label: "Ditolak", variant: "destructive" },
   paid: { label: "Dibayar", variant: "success" },
+  cancelled: { label: "Dibatalkan", variant: "secondary" },
 };
 
-const statusOrder: PvStatus[] = ["draft", "submitted", "approved", "rejected", "paid"];
+const statusOrder: PvStatus[] = ["draft", "submitted", "approved", "rejected", "paid", "cancelled"];
 
 function currentMonthValue() {
   return new Date().toISOString().slice(0, 7);
@@ -65,7 +66,8 @@ export function VoucherReport() {
 
   const totalIn = vouchers.filter((v) => v.direction === "in").length;
   const totalOut = vouchers.filter((v) => v.direction === "out").length;
-  const totalValue = vouchers.reduce((sum, v) => sum + v.totalAmount, 0);
+  // PV Dibatalkan tetap muncul di rincian per status, tapi gak ikut total nilai.
+  const totalValue = vouchers.filter((v) => v.status !== "cancelled").reduce((sum, v) => sum + v.totalAmount, 0);
 
   const byStatus = statusOrder.map((s) => {
     const list = vouchers.filter((v) => v.status === s);

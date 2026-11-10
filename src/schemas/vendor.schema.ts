@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+/**
+ * Kode boleh dikosongkan - server otomatis isi kode berikutnya (lihat
+ * src/lib/next-master-code.ts). NPWP, alamat, dan rekening boleh kosong
+ * (sama kayak SiPV) - vendor perorangan / data yang belum lengkap tetap bisa
+ * dicatat, dilengkapi belakangan lewat Edit.
+ */
 export const vendorSchema = z.object({
   name: z
     .string()
@@ -8,14 +14,14 @@ export const vendorSchema = z.object({
     .max(100, "Nama vendor maksimal 100 karakter"),
   code: z
     .string()
-    .min(1, "Kode vendor wajib diisi")
-    .regex(/^[A-Z0-9-]+$/, "Kode vendor hanya boleh huruf kapital, angka, dan tanda minus"),
-  npwp: z.string().min(1, "NPWP wajib diisi"),
+    .regex(/^[A-Z0-9-]*$/, "Kode vendor hanya boleh huruf kapital, angka, dan tanda minus")
+    .default(""),
+  npwp: z.string().default(""),
   phone: z.string().optional(),
-  address: z.string().min(1, "Alamat wajib diisi"),
-  bankName: z.string().min(1, "Nama bank wajib diisi"),
-  bankAccountNumber: z.string().min(1, "Nomor rekening wajib diisi"),
-  bankAccountName: z.string().min(1, "Nama rekening bank wajib diisi"),
+  address: z.string().default(""),
+  bankName: z.string().default(""),
+  bankAccountNumber: z.string().default(""),
+  bankAccountName: z.string().default(""),
 });
 
 export type VendorFormValues = z.infer<typeof vendorSchema>;

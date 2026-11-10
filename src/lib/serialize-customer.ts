@@ -7,6 +7,9 @@ interface PrismaCustomer {
   email: string;
   phone: string | null;
   address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
   status: CustomerStatus;
   updatedAt: Date;
 }
@@ -22,6 +25,9 @@ export function serializeCustomer(customer: PrismaCustomer): ApiCustomer {
     email: customer.email,
     phone: customer.phone ?? undefined,
     address: customer.address,
+    bankName: customer.bankName,
+    bankAccountNumber: customer.bankAccountNumber,
+    bankAccountName: customer.bankAccountName,
     status: customer.status,
     updatedAt: customer.updatedAt.toISOString(),
   };

@@ -21,6 +21,15 @@ export const paymentVoucherService = {
     return data;
   },
 
+  /** Perkiraan nomor PV berikutnya buat tanggal ini - gak menaikkan counter. */
+  async previewNextNumber(date: string): Promise<{ data: { voucherNumber: string; isPreview: true } }> {
+    const { data } = await api.get<{ data: { voucherNumber: string; isPreview: true } }>(
+      "/payment-vouchers/next-number",
+      { params: { date } }
+    );
+    return data;
+  },
+
   async getById(id: string): Promise<PaymentVoucherDetailResponse> {
     const { data } = await api.get<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}`);
     return data;
@@ -49,6 +58,12 @@ export const paymentVoucherService = {
 
   async reject(id: string, note?: string): Promise<PaymentVoucherDetailResponse> {
     const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/reject`, { note });
+    return data;
+  },
+
+  /** Batalkan PV (semua status kecuali Dibayar) - alasan wajib, lihat route PATCH /cancel. */
+  async cancel(id: string, note: string): Promise<PaymentVoucherDetailResponse> {
+    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/cancel`, { note });
     return data;
   },
 

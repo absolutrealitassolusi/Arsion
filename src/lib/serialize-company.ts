@@ -7,6 +7,10 @@ interface PrismaCompany {
   npwp: string;
   phone: string;
   email: string;
+  website: string;
+  pvCode: string;
+  pvSeqLength: number;
+  pvResetMode: "monthly" | "yearly" | "never";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +23,10 @@ export function serializeCompany(company: PrismaCompany): ApiCompany {
     npwp: company.npwp,
     phone: company.phone,
     email: company.email,
+    website: company.website,
+    pvCode: company.pvCode,
+    pvSeqLength: company.pvSeqLength,
+    pvResetMode: company.pvResetMode,
     createdAt: company.createdAt.toISOString(),
     updatedAt: company.updatedAt.toISOString(),
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MoreHorizontal, Pencil, Archive, RotateCcw, FolderKanban } from "lucide-react";
 import {
   Table,
@@ -144,9 +145,13 @@ export function ProjectTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Pencil className="h-4 w-4" /> Edit
-                        </DropdownMenuItem>
+                        {project.status !== "archived" && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/master-data/project/${encodeURIComponent(project.id)}/edit`}>
+                              <Pencil className="h-4 w-4" /> Edit
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         {project.status === "archived" ? (
                           <DropdownMenuItem onClick={() => reactivateProject.mutate(project.id)}>
                             <RotateCcw className="h-4 w-4" /> Aktifkan Kembali

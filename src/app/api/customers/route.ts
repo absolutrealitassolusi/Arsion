@@ -7,6 +7,7 @@ import { serializeCustomer } from "@/lib/serialize-customer";
 import { logActivity } from "@/lib/activity-log";
 import { customerSchema } from "@/schemas/customer.schema";
 import { PERMISSIONS } from "@/config/permissions";
+import { isUniqueViolation, nextCodeFor } from "@/lib/master-code-db";
 
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
@@ -46,13 +47,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const [existing] = await db.select().from(customers).where(eq(customers.id, parsed.data.code)).limit(1);
+  const { code: requestedCode, ...rest } = parsed.data;
+  // Kode kosong = diisi otomatis (+1 dari kode terbesar, lihat src/lib/next-master-code.ts).
+  const code = requestedCode || (await nextCodeFor("customer"));
+
+  const [existing] = await db.select().from(customers).where(eq(customers.id, code)).limit(1);
   if (existing) {
     return NextResponse.json({ message: "Kode customer sudah dipakai." }, { status: 409 });
   }
 
-  const { code, ...rest } = parsed.data;
-  const [customer] = await db.insert(customers).values({ ...rest, id: code }).returning();
+  let customer: typeof customers.$inferSelect | undefined;
+  try {
+    [customer] = await db.insert(customers).values({ ...rest, id: code }).returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return NextResponse.json({ message: "Kode customer baru saja dipakai orang lain, coba simpan lagi." }, { status: 409 });
+    }
+    throw err;
+  }
   await logActivity(auth.user.name, "Tambah Customer", `${customer!.name} (${customer!.id})`);
   return NextResponse.json({ data: serializeCustomer(customer!) }, { status: 201 });
 }

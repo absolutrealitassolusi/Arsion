@@ -1,5 +1,12 @@
 export type PvDirection = "in" | "out";
-export type PvStatus = "draft" | "submitted" | "approved" | "rejected" | "paid";
+export type PvStatus = "draft" | "submitted" | "approved" | "rejected" | "paid" | "cancelled";
+
+/**
+ * Status yang masih boleh dibatalkan - semua kecuali yang sudah Dibayar (uang
+ * sudah keluar/masuk, dikoreksi lewat PV baru) dan yang memang sudah Dibatalkan.
+ * Dipakai server (PATCH /cancel) dan UI (tombol Batalkan) biar aturannya sama.
+ */
+export const CANCELLABLE_PV_STATUSES: PvStatus[] = ["draft", "submitted", "approved", "rejected"];
 export type PaymentMethod = "transfer" | "cash" | "cheque";
 
 /** Barang kena PPN, Jasa kena PPh 23 (badan usaha), Freelance kena PPh 21 (perorangan), Non Pajak gak kena apa-apa. */

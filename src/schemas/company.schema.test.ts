@@ -35,4 +35,16 @@ describe("companySchema", () => {
       expect(result.error.flatten().fieldErrors.email).toContain("Email tidak valid");
     }
   });
+
+  it("setting penomoran PV default ke format lama (45, 4 digit, bulanan) kalau gak dikirim", () => {
+    const result = companySchema.parse(validPayload);
+    expect(result).toMatchObject({ pvCode: "45", pvSeqLength: 4, pvResetMode: "monthly" });
+  });
+
+  it("gagal kalau kode PV bukan angka atau panjang nomor urut di luar 3-6", () => {
+    expect(companySchema.safeParse({ ...validPayload, pvCode: "4A" }).success).toBe(false);
+    expect(companySchema.safeParse({ ...validPayload, pvSeqLength: 2 }).success).toBe(false);
+    expect(companySchema.safeParse({ ...validPayload, pvSeqLength: 7 }).success).toBe(false);
+    expect(companySchema.safeParse({ ...validPayload, pvResetMode: "weekly" }).success).toBe(false);
+  });
 });

@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { NextRequest } from "next/server";
 import { eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { paymentVouchers, activityLogs, users } from "@/db/schema";
+import { paymentVouchers, activityLogs, users, pvCounters } from "@/db/schema";
 
 vi.mock("@/lib/api-auth", () => ({
   requireUser: vi.fn(),
@@ -38,12 +38,12 @@ beforeAll(async () => {
 
 const TEST_PARTY = "VITEST-PV-POST-ROUTE-TEST";
 
-// Tahun "98" (2098) yang gak mungkin ketabrak data asli, biar nomor
+// Tahun "98" (1998) yang gak mungkin ketabrak data asli, biar nomor
 // voucher yang dihasilin bisa dipastiin persis (0001) tanpa kepengaruh
 // PV lain yang beneran ada di database.
 const validBody = {
   direction: "out",
-  date: "2098-06-07",
+  date: "1998-06-07",
   senderBank: "BRI - Rekening Operasional",
   partyName: TEST_PARTY,
   description: "Test dari vitest",
@@ -78,6 +78,9 @@ beforeEach(() => {
 afterEach(async () => {
   await db.delete(paymentVouchers).where(like(paymentVouchers.partyName, TEST_PARTY));
   await db.delete(activityLogs).where(like(activityLogs.detail, `%${TEST_PARTY}%`));
+  // Counter periode 1998 ikut dibersihin - kalau gak, nomor urutnya terus naik
+  // antar test (counter sengaja gak pernah turun walau PV-nya dihapus).
+  await db.delete(pvCounters).where(like(pvCounters.period, "98%"));
 });
 
 describe("POST /api/payment-vouchers", () => {
@@ -108,6 +111,39 @@ describe("POST /api/payment-vouchers", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { errors: Record<string, string[]> };
     expect(body.errors.partyName).toBeDefined();
+  });
+
+  it("balikin 400 kalau tanggal PV lebih maju dari hari ini", async () => {
+    requirePermissionMock.mockResolvedValue({ user: fakeUser });
+
+    const res = await POST(makeRequest({ ...validBody, date: "2099-01-01" }));
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { errors: Record<string, string[]> };
+    expect(body.errors.date).toBeDefined();
+  });
+
+  it("nomor PV Draft yang dihapus gak dipakai ulang", async () => {
+    requirePermissionMock.mockResolvedValue({ user: fakeUser });
+
+    const first = (await (await POST(makeRequest(validBody))).json()) as { data: { id: string } };
+    await db.delete(paymentVouchers).where(eq(paymentVouchers.id, first.data.id));
+    const second = (await (await POST(makeRequest(validBody))).json()) as { data: { voucherNumber: string } };
+
+    expect(first.data.id).toBe("9806450001");
+    expect(second.data.voucherNumber).toBe("9806450002");
+  });
+
+  it("dua PV yang disimpan bersamaan dapat nomor berbeda", async () => {
+    requirePermissionMock.mockResolvedValue({ user: fakeUser });
+
+    const responses = await Promise.all([POST(makeRequest(validBody)), POST(makeRequest(validBody))]);
+    const numbers = await Promise.all(
+      responses.map(async (res) => ((await res.json()) as { data: { voucherNumber: string } }).data.voucherNumber)
+    );
+
+    expect(responses.map((r) => r.status)).toEqual([201, 201]);
+    expect([...numbers].sort()).toEqual(["9806450001", "9806450002"]);
   });
 
   it("payload valid: total dihitung ulang di server (bukan percaya angka dari client), status draft, preparedBy dari user yang login", async () => {

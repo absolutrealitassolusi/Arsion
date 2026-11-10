@@ -31,7 +31,13 @@ describe("vendorSchema", () => {
     expect(vendorSchema.safeParse(validVendor).success).toBe(true);
   });
 
-  it("gagal kalau address kosong", () => {
-    expect(vendorSchema.safeParse({ ...validVendor, address: "" }).success).toBe(false);
+  it("NPWP, alamat, dan rekening boleh kosong (dilengkapi belakangan)", () => {
+    expect(vendorSchema.safeParse({ name: "Budi Freelance" }).success).toBe(true);
+    expect(vendorSchema.safeParse({ ...validVendor, address: "", npwp: "", bankName: "" }).success).toBe(true);
+  });
+
+  it("kode boleh kosong - nanti diisi otomatis server", () => {
+    expect(vendorSchema.parse({ ...validVendor, code: "" }).code).toBe("");
+    expect(vendorSchema.parse({ name: "PT Tanpa Kode" }).code).toBe("");
   });
 });

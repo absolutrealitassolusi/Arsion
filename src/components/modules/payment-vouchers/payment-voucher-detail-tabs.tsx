@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Printer, Send, Check, X, Wallet, Save, Paperclip, Pencil } from "lucide-react";
+import { Printer, Send, Check, X, Wallet, Save, Paperclip, Pencil, Ban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,18 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { ITEM_CATEGORY_LABELS, type PaymentVoucher, type PvStatus } from "@/types/payment-voucher";
+import {
+  CANCELLABLE_PV_STATUSES,
+  ITEM_CATEGORY_LABELS,
+  type PaymentVoucher,
+  type PvStatus,
+} from "@/types/payment-voucher";
 import {
   usePaymentVoucher,
   useSubmitPaymentVoucher,
   useApprovePaymentVoucher,
   useRejectPaymentVoucher,
+  useCancelPaymentVoucher,
   useMarkPaymentVoucherPaid,
   useUpdateTaxInvoice,
   useUploadPaymentProof,
@@ -55,6 +61,7 @@ const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "defau
   approved: { label: "Disetujui", variant: "success" },
   rejected: { label: "Ditolak", variant: "destructive" },
   paid: { label: "Dibayar", variant: "success" },
+  cancelled: { label: "Dibatalkan", variant: "secondary" },
 };
 
 const historyStatusLabel: Record<PvStatus, string> = {
@@ -63,6 +70,7 @@ const historyStatusLabel: Record<PvStatus, string> = {
   approved: "Disetujui",
   rejected: "Ditolak",
   paid: "Ditandai Sudah Dibayar",
+  cancelled: "Dibatalkan",
 };
 
 const paymentMethodLabel: Record<string, string> = {
@@ -79,7 +87,7 @@ const tabs = [
   { key: "history", label: "History" },
 ];
 
-type PendingAction = "submit" | "approve" | "reject" | "pay" | null;
+type PendingAction = "submit" | "approve" | "reject" | "pay" | "cancel" | null;
 
 interface PaymentVoucherDetailTabsProps {
   voucherId: string;
@@ -215,6 +223,7 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   const submitVoucher = useSubmitPaymentVoucher(voucherId);
   const approveVoucher = useApprovePaymentVoucher(voucherId);
   const rejectVoucher = useRejectPaymentVoucher(voucherId);
+  const cancelVoucher = useCancelPaymentVoucher(voucherId);
   const payVoucher = useMarkPaymentVoucherPaid(voucherId);
   const updateTaxInvoice = useUpdateTaxInvoice(voucherId);
   const uploadPaymentProof = useUploadPaymentProof(voucherId);
@@ -355,7 +364,15 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
         };
 
   const isActionPending =
-    submitVoucher.isPending || approveVoucher.isPending || rejectVoucher.isPending || payVoucher.isPending;
+    submitVoucher.isPending ||
+    approveVoucher.isPending ||
+    rejectVoucher.isPending ||
+    cancelVoucher.isPending ||
+    payVoucher.isPending;
+
+  // Aturannya sama persis dengan route PATCH /cancel: status belum Dibayar,
+  // dan yang klik pembuat PV-nya atau user dengan izin Approve.
+  const canCancel = CANCELLABLE_PV_STATUSES.includes(voucher.status) && (isOwnVoucher || canApprove);
 
   const actionConfig: Record<Exclude<PendingAction, null>, {
     title: string;
@@ -387,6 +404,16 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
           onSuccess: () => backToListPath && router.push(backToListPath),
         }),
     },
+    cancel: {
+      title: "Batalkan Payment Voucher ini?",
+      description:
+        "PV yang dibatalkan tidak bisa diproses lagi, tapi nomornya tetap tercatat (tidak dipakai ulang). Tindakan ini tidak bisa dikembalikan.",
+      confirmLabel: "Batalkan PV",
+      run: () =>
+        cancelVoucher.mutate(rejectNoteInput.trim(), {
+          onSuccess: () => backToListPath && router.push(backToListPath),
+        }),
+    },
     pay: {
       title: "Tandai Payment Voucher ini sudah dibayar?",
       description: "Pastikan pembayaran sudah benar-benar dilakukan sebelum menandai ini.",
@@ -407,6 +434,7 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   };
 
   const rejectionNote = [...voucher.history].reverse().find((h) => h.status === "rejected")?.note;
+  const cancellation = [...voucher.history].reverse().find((h) => h.status === "cancelled");
 
   return (
     <div className="space-y-4">
@@ -480,6 +508,12 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
                     <dd className="text-sm font-medium">{rejectionNote}</dd>
                   </div>
                 )}
+                {voucher.status === "cancelled" && cancellation && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">Dibatalkan oleh {cancellation.by}</dt>
+                    <dd className="text-sm font-medium">{cancellation.note ?? "-"}</dd>
+                  </div>
+                )}
               </dl>
 
               <div className="flex flex-wrap gap-2">
@@ -531,6 +565,15 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
                   <p className="text-sm text-muted-foreground">
                     Tidak ada aksi approval yang tersedia untuk status ini.
                   </p>
+                )}
+                {voucher.status === "cancelled" && (
+                  <p className="text-sm text-muted-foreground">PV ini sudah dibatalkan.</p>
+                )}
+                {canCancel && (
+                  <Button variant="outline" className="text-destructive" onClick={() => setPendingAction("cancel")}>
+                    <Ban className="h-4 w-4" />
+                    Batalkan PV
+                  </Button>
                 )}
               </div>
             </div>
@@ -765,7 +808,9 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
         description={pendingAction ? actionConfig[pendingAction].description : ""}
         confirmLabel={pendingAction ? actionConfig[pendingAction].confirmLabel : ""}
         isLoading={isActionPending}
-        confirmDisabled={pendingAction === "reject" && rejectNoteInput.trim().length === 0}
+        confirmDisabled={
+          (pendingAction === "reject" || pendingAction === "cancel") && rejectNoteInput.trim().length === 0
+        }
         onConfirm={() => {
           if (!pendingAction) return;
           actionConfig[pendingAction].run();
@@ -779,6 +824,17 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
             <Textarea
               id="rejectNote"
               placeholder="Contoh: Dokumen pendukung kurang lengkap"
+              value={rejectNoteInput}
+              onChange={(e) => setRejectNoteInput(e.target.value)}
+            />
+          </div>
+        )}
+        {pendingAction === "cancel" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="cancelNote">Alasan Pembatalan</Label>
+            <Textarea
+              id="cancelNote"
+              placeholder="Contoh: Transaksi batal / PV dobel"
               value={rejectNoteInput}
               onChange={(e) => setRejectNoteInput(e.target.value)}
             />

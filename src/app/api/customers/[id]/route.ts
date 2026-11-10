@@ -46,13 +46,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const [codeTaken] = await db
     .select()
     .from(customers)
-    .where(and(eq(customers.id, parsed.data.code), ne(customers.id, id)))
+    .where(and(eq(customers.id, parsed.data.code || id), ne(customers.id, id)))
     .limit(1);
   if (codeTaken) {
     return NextResponse.json({ message: "Kode customer sudah dipakai." }, { status: 409 });
   }
 
-  const { code, ...rest } = parsed.data;
+  // Kode dikosongkan pas edit = tetap pakai kode lama.
+  const { code: requestedCode, ...rest } = parsed.data;
+  const code = requestedCode || id;
   const [customer] = await db.update(customers).set({ ...rest, id: code }).where(eq(customers.id, id)).returning();
   await logActivity(auth.user.name, "Edit Customer", `${customer!.name} (${customer!.id})`);
   return NextResponse.json({ data: serializeCustomer(customer!) });

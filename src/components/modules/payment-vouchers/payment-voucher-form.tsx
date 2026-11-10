@@ -31,9 +31,15 @@ import {
 import { FormField } from "@/components/shared/form-field";
 import {
   paymentVoucherSchema,
+  todayInJakarta,
   type PaymentVoucherFormValues,
 } from "@/schemas/payment-voucher.schema";
-import { useCreatePaymentVoucher, useUpdatePaymentVoucher, paymentVoucherKeys } from "@/hooks/use-payment-vouchers";
+import {
+  useCreatePaymentVoucher,
+  useUpdatePaymentVoucher,
+  usePvNumberPreview,
+  paymentVoucherKeys,
+} from "@/hooks/use-payment-vouchers";
 import { paymentVoucherService } from "@/services/payment-voucher.service";
 import { useVendors, useCreateVendor } from "@/hooks/use-vendors";
 import { useCustomers, useCreateCustomer } from "@/hooks/use-customers";
@@ -121,7 +127,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
         }
       : {
           direction,
-          date: new Date().toISOString().slice(0, 10),
+          date: todayInJakarta(),
           senderBank: "",
           partyName: "",
           description: "",
@@ -144,6 +150,18 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
           attachmentUrls: null,
         },
   });
+
+  const selectedDate = watch("date");
+  const numberPreview = usePvNumberPreview(selectedDate, !editVoucher);
+  // Mode edit: nomor sudah final sejak PV pertama dibuat, gak pernah
+  // digenerate ulang walau tanggalnya diubah.
+  const voucherNumberDisplay = editVoucher
+    ? editVoucher.voucherNumber
+    : numberPreview.data
+      ? `${numberPreview.data.data.voucherNumber} (perkiraan)`
+      : numberPreview.isFetching
+        ? "Menghitung..."
+        : "Otomatis dibuat setelah disimpan";
 
   const partyOptions =
     direction === "out"
@@ -186,29 +204,45 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
 
   const handleSelectParty = (name: string) => {
     setValue("partyName", name, { shouldValidate: true });
-    if (direction === "out") {
-      const matched = vendorsData?.data.find((v) => v.name === name);
-      if (matched) {
-        setValue("receiverBankName", matched.bankName);
-        setValue("receiverAccountNumber", matched.bankAccountNumber);
-        setValue("receiverAccountName", matched.bankAccountName);
-      }
+    // Rekening lawan transaksi diisi otomatis dari master data: rekening
+    // vendor (penerima) buat PV Out, rekening customer (pengirim) buat PV In.
+    // Yang kosong di master data gak nimpa isian yang sudah diketik.
+    const matched =
+      direction === "out"
+        ? vendorsData?.data.find((v) => v.name === name)
+        : customersData?.data.find((c) => c.name === name);
+    if (matched) {
+      if (matched.bankName) setValue("receiverBankName", matched.bankName);
+      if (matched.bankAccountNumber) setValue("receiverAccountNumber", matched.bankAccountNumber);
+      if (matched.bankAccountName) setValue("receiverAccountName", matched.bankAccountName);
     }
   };
 
+  // Tambah cepat dari form PV: kode dikosongkan biar diisi otomatis server
+  // (dulu dikirim "-" tetap, jadi tambah cepat kedua selalu gagal "kode sudah
+  // dipakai"). Data lain dilengkapi belakangan lewat Edit di Master Data.
   const handleCreateParty = (name: string) => {
     if (direction === "out") {
       createVendor.mutate({
         name,
-        code: "-",
-        npwp: "-",
-        address: "-",
-        bankName: "-",
-        bankAccountNumber: "-",
+        code: "",
+        npwp: "",
+        address: "",
+        bankName: "",
+        bankAccountNumber: "",
         bankAccountName: name,
       });
     } else {
-      createCustomer.mutate({ name, code: "-", npwp: "-", email: "-", address: "-" });
+      createCustomer.mutate({
+        name,
+        code: "",
+        npwp: "",
+        email: "",
+        address: "",
+        bankName: "",
+        bankAccountNumber: "",
+        bankAccountName: "",
+      });
     }
   };
 
@@ -330,7 +364,12 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
 
           <div className="space-y-2">
             <Label htmlFor="voucherNumber">Nomor PV</Label>
-            <Input id="voucherNumber" value="Otomatis dibuat setelah disimpan" disabled />
+            <Input id="voucherNumber" value={voucherNumberDisplay} disabled />
+            {!editVoucher && numberPreview.data && (
+              <p className="text-xs text-muted-foreground">
+                Nomor final ditentukan saat disimpan - bisa bergeser kalau ada PV lain yang disimpan duluan.
+              </p>
+            )}
           </div>
 
           <FormField
@@ -345,6 +384,7 @@ export function PaymentVoucherForm({ direction, editVoucher }: PaymentVoucherFor
             id="date"
             label="Tanggal"
             type="date"
+            max={todayInJakarta()}
             error={errors.date?.message}
             {...register("date")}
           />

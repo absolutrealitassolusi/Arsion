@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { FormField } from "@/components/shared/form-field";
 import { projectSchema, type ProjectFormValues } from "@/schemas/project.schema";
-import { useCreateProject } from "@/hooks/use-projects";
+import { useCreateProject, useUpdateProject } from "@/hooks/use-projects";
+import { useNextMasterCode } from "@/hooks/use-next-master-code";
+import type { Project } from "@/types/project";
 
 const statusOptions: { value: ProjectFormValues["status"]; label: string }[] = [
   { value: "ongoing", label: "Berjalan" },
@@ -20,34 +23,62 @@ const statusOptions: { value: ProjectFormValues["status"]; label: string }[] = [
   { value: "cancelled", label: "Dibatalkan" },
 ];
 
-export function ProjectForm() {
+interface ProjectFormProps {
+  /** Diisi = mode Edit (lihat /master-data/project/[id]/edit). Project yang diarsipkan gak bisa diedit. */
+  editProject?: Project;
+}
+
+export function ProjectForm({ editProject }: ProjectFormProps) {
   const router = useRouter();
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject(editProject?.id ?? "");
+  const nextCode = useNextMasterCode("project", !editProject);
 
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     formState: { errors },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: {
-      name: "",
-      code: "",
-      description: "",
-      clientName: "",
-      picName: "",
-      startDate: "",
-      endDate: "",
-      status: "ongoing",
-    },
+    defaultValues:
+      editProject && editProject.status !== "archived"
+        ? {
+            name: editProject.name,
+            code: editProject.code,
+            description: editProject.description ?? "",
+            clientName: editProject.clientName ?? "",
+            picName: editProject.picName ?? "",
+            // Input type="date" butuh "YYYY-MM-DD", API ngirim ISO lengkap.
+            startDate: editProject.startDate?.slice(0, 10) ?? "",
+            endDate: editProject.endDate?.slice(0, 10) ?? "",
+            status: editProject.status,
+          }
+        : {
+            name: "",
+            code: "",
+            description: "",
+            clientName: "",
+            picName: "",
+            startDate: "",
+            endDate: "",
+            status: "ongoing",
+          },
   });
 
+  // Kode otomatis (+1 dari kode terakhir) - cuma diisi kalau user belum ngetik kode sendiri.
+  useEffect(() => {
+    if (nextCode.data && !getValues("code")) setValue("code", nextCode.data);
+  }, [nextCode.data, getValues, setValue]);
+
+  const isPending = createProject.isPending || updateProject.isPending;
+
   const onSubmit = (values: ProjectFormValues) => {
-    createProject.mutate(values, {
-      onSuccess: () => router.push("/master-data/project"),
-    });
+    const onSuccess = () => router.push("/master-data/project");
+    if (editProject) updateProject.mutate(values, { onSuccess });
+    else createProject.mutate(values, { onSuccess });
   };
 
   return (
@@ -68,7 +99,7 @@ export function ProjectForm() {
           <FormField
             id="code"
             label="Kode Project"
-            placeholder="RGC-001"
+            placeholder={nextCode.isFetching ? "Memuat kode..." : "Kosongkan untuk kode otomatis"}
             error={errors.code?.message}
             {...register("code")}
           />
@@ -139,9 +170,9 @@ export function ProjectForm() {
             <Button type="button" variant="outline" onClick={() => router.push("/master-data/project")}>
               Batal
             </Button>
-            <Button type="submit" isLoading={createProject.isPending}>
+            <Button type="submit" isLoading={isPending}>
               <Save className="h-4 w-4" />
-              Simpan Project
+              {editProject ? "Simpan Perubahan" : "Simpan Project"}
             </Button>
           </div>
         </form>

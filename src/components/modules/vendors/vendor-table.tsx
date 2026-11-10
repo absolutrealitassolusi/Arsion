@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MoreHorizontal, Pencil, Power, PowerOff, Building2 } from "lucide-react";
 import {
   Table,
@@ -139,8 +140,10 @@ export function VendorTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Pencil className="h-4 w-4" /> Edit
+                        <DropdownMenuItem asChild>
+                          <Link href={`/master-data/vendor/${encodeURIComponent(vendor.id)}/edit`}>
+                            <Pencil className="h-4 w-4" /> Edit
+                          </Link>
                         </DropdownMenuItem>
                         {vendor.status === "active" ? (
                           <DropdownMenuItem onClick={() => setDeactivateTarget(vendor)}>

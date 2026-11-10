@@ -18,6 +18,17 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
   });
 }
 
+/** Perkiraan nomor PV buat form "Buat PV" - ikut di-refresh tiap ada PV baru (key di bawah `all`). */
+export function usePvNumberPreview(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...paymentVoucherKeys.all, "next-number", date] as const,
+    queryFn: () => paymentVoucherService.previewNextNumber(date),
+    enabled: enabled && /^\d{4}-\d{2}-\d{2}$/.test(date),
+    staleTime: 10_000,
+    retry: false,
+  });
+}
+
 export function usePaymentVoucher(id: string) {
   return useQuery({
     queryKey: paymentVoucherKeys.detail(id),
@@ -97,6 +108,21 @@ export function useRejectPaymentVoucher(id: string) {
     },
     onError: (error: ApiErrorShape) => {
       toast.error(error.message ?? "Gagal menolak Payment Voucher");
+    },
+  });
+}
+
+export function useCancelPaymentVoucher(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (note: string) => paymentVoucherService.cancel(id, note),
+    onSuccess: () => {
+      toast.success("Payment Voucher dibatalkan");
+      queryClient.invalidateQueries({ queryKey: paymentVoucherKeys.all });
+    },
+    onError: (error: ApiErrorShape) => {
+      toast.error(error.message ?? "Gagal membatalkan Payment Voucher");
     },
   });
 }

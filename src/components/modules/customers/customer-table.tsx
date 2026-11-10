@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { MoreHorizontal, Pencil, Power, PowerOff, Users } from "lucide-react";
 import {
   Table,
@@ -137,8 +138,10 @@ export function CustomerTable() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Pencil className="h-4 w-4" /> Edit
+                        <DropdownMenuItem asChild>
+                          <Link href={`/master-data/customer/${encodeURIComponent(customer.id)}/edit`}>
+                            <Pencil className="h-4 w-4" /> Edit
+                          </Link>
                         </DropdownMenuItem>
                         {customer.status === "active" ? (
                           <DropdownMenuItem onClick={() => setDeactivateTarget(customer)}>

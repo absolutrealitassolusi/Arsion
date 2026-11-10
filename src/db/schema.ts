@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, timestamp, boolean, doublePrecision, jsonb, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, timestamp, boolean, doublePrecision, integer, jsonb, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import type { PaymentVoucherItem, PaymentVoucherHistoryEntry } from "@/types/payment-voucher";
@@ -9,10 +9,11 @@ export const vendorStatusEnum = pgEnum("VendorStatus", ["active", "inactive"]);
 export const customerStatusEnum = pgEnum("CustomerStatus", ["active", "inactive"]);
 export const projectStatusEnum = pgEnum("ProjectStatus", ["ongoing", "completed", "on_hold", "cancelled", "archived"]);
 export const pvDirectionEnum = pgEnum("PvDirection", ["in", "out"]);
-export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid"]);
+export const pvStatusEnum = pgEnum("PvStatus", ["draft", "submitted", "approved", "rejected", "paid", "cancelled"]);
 export const paymentMethodEnum = pgEnum("PaymentMethod", ["transfer", "cash", "cheque"]);
 export const notificationTypeEnum = pgEnum("NotificationType", ["info", "success", "warning"]);
 export const invoiceStatusEnum = pgEnum("InvoiceStatus", ["draft", "sent", "paid"]);
+export const pvResetModeEnum = pgEnum("PvResetMode", ["monthly", "yearly", "never"]);
 
 export const users = pgTable("User", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
@@ -86,6 +87,10 @@ export const customers = pgTable("Customer", {
   email: text("email").notNull(),
   phone: text("phone"),
   address: text("address").notNull(),
+  // Rekening customer - dipakai auto-isi "rekening pengirim" di PV In.
+  bankName: text("bankName").notNull().default(""),
+  bankAccountNumber: text("bankAccountNumber").notNull().default(""),
+  bankAccountName: text("bankAccountName").notNull().default(""),
   status: customerStatusEnum("status").notNull().default("active"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
@@ -201,9 +206,33 @@ export const company = pgTable("Company", {
   npwp: text("npwp").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull(),
+  website: text("website").notNull().default(""),
+  // Pengaturan penomoran PV (lihat src/lib/pv-voucher-number.ts) - format
+  // nomornya YYMM + pvCode + nomor urut sepanjang pvSeqLength digit.
+  pvCode: text("pvCode").notNull().default("45"),
+  pvSeqLength: integer("pvSeqLength").notNull().default(4),
+  pvResetMode: pvResetModeEnum("pvResetMode").notNull().default("monthly"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
 });
+
+/**
+ * Counter nomor urut PV per periode (YYMM / YY / "all", tergantung
+ * Company.pvResetMode) dan kode. Cuma pernah NAIK - nomor yang sudah pernah
+ * dikeluarkan gak dipakai ulang walau PV Draft-nya dihapus. Di-upsert lewat
+ * INSERT ... ON CONFLICT, jadi dua PV yang disimpan bersamaan antre di row
+ * lock-nya dan gak mungkin dapat nomor yang sama.
+ */
+export const pvCounters = pgTable(
+  "PvCounter",
+  {
+    period: text("period").notNull(),
+    code: text("code").notNull(),
+    counter: integer("counter").notNull().default(0),
+    updatedAt: timestamp("updatedAt").notNull().$defaultFn(() => new Date()).$onUpdate(() => new Date()),
+  },
+  (t) => [primaryKey({ columns: [t.period, t.code] })]
+);
 
 /**
  * Catatan aktivitas sistem - read-only, ditulis otomatis dari kode (lihat

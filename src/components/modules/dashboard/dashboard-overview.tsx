@@ -24,6 +24,7 @@ const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "defau
   approved: { label: "Disetujui", variant: "success" },
   rejected: { label: "Ditolak", variant: "destructive" },
   paid: { label: "Dibayar", variant: "success" },
+  cancelled: { label: "Dibatalkan", variant: "secondary" },
 };
 
 function isSameMonth(dateStr: string, reference: Date): boolean {
@@ -42,7 +43,7 @@ export function DashboardOverview() {
   const vouchers = data?.data ?? [];
   const now = new Date();
 
-  const totalThisMonth = vouchers.filter((v) => isSameMonth(v.createdAt, now)).length;
+  const totalThisMonth = vouchers.filter((v) => v.status !== "cancelled" && isSameMonth(v.createdAt, now)).length;
   const waitingApproval = vouchers.filter((v) => v.status === "submitted").length;
   // "Invoice belum lunas" = PV Out yang udah disetujui tapi belum ditandai dibayar.
   const unpaidInvoiceAmount = vouchers

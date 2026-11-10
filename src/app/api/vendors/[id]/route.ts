@@ -46,13 +46,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const [codeTaken] = await db
     .select()
     .from(vendors)
-    .where(and(eq(vendors.id, parsed.data.code), ne(vendors.id, id)))
+    .where(and(eq(vendors.id, parsed.data.code || id), ne(vendors.id, id)))
     .limit(1);
   if (codeTaken) {
     return NextResponse.json({ message: "Kode vendor sudah dipakai." }, { status: 409 });
   }
 
-  const { code, ...rest } = parsed.data;
+  // Kode dikosongkan pas edit = tetap pakai kode lama.
+  const { code: requestedCode, ...rest } = parsed.data;
+  const code = requestedCode || id;
   const [vendor] = await db.update(vendors).set({ ...rest, id: code }).where(eq(vendors.id, id)).returning();
   await logActivity(auth.user.name, "Edit Vendor", `${vendor!.name} (${vendor!.id})`);
   return NextResponse.json({ data: serializeVendor(vendor!) });

@@ -5,6 +5,10 @@ export interface Company {
   npwp: string;
   phone: string;
   email: string;
+  website: string;
+  pvCode: string;
+  pvSeqLength: number;
+  pvResetMode: "monthly" | "yearly" | "never";
   createdAt: string;
   updatedAt: string;
 }
