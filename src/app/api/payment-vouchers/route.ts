@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
     direction ? eq(paymentVouchers.direction, direction) : undefined,
     status ? eq(paymentVouchers.status, status) : undefined,
     search
-      ? or(ilike(paymentVouchers.id, `%${search}%`), ilike(paymentVouchers.partyName, `%${search}%`))
+      ? or(
+          ilike(paymentVouchers.id, `%${search}%`),
+          ilike(paymentVouchers.partyName, `%${search}%`),
+          ilike(paymentVouchers.description, `%${search}%`)
+        )
       : undefined,
   ].filter((c) => c !== undefined);
 
@@ -73,6 +77,14 @@ export async function GET(request: NextRequest) {
       taxProofFileName: paymentVouchers.taxProofFileName,
       taxNote: paymentVouchers.taxNote,
       withholdingProofCount: sql<number>`jsonb_array_length(${paymentVouchers.withholdingProofs})`.mapWith(Number),
+      // Total file lampiran + bukti bayar + dokumen pajak (dipakai kolom Dokumen di Archive).
+      // Tiap jenis: daftar file baru kalau ada, kalau gak 1 file kalau kolom lama terisi.
+      documentCount: sql<number>`
+        (CASE WHEN jsonb_array_length(${paymentVouchers.attachments}) > 0 THEN jsonb_array_length(${paymentVouchers.attachments}) WHEN ${paymentVouchers.attachmentName} IS NOT NULL THEN 1 ELSE 0 END)
+        + (CASE WHEN jsonb_array_length(${paymentVouchers.paymentProofs}) > 0 THEN jsonb_array_length(${paymentVouchers.paymentProofs}) WHEN ${paymentVouchers.paymentProofFileName} IS NOT NULL THEN 1 ELSE 0 END)
+        + (CASE WHEN jsonb_array_length(${paymentVouchers.taxProofs}) + jsonb_array_length(${paymentVouchers.withholdingProofs}) > 0
+             THEN jsonb_array_length(${paymentVouchers.taxProofs}) + jsonb_array_length(${paymentVouchers.withholdingProofs})
+             WHEN ${paymentVouchers.taxProofFileName} IS NOT NULL THEN 1 ELSE 0 END)`.mapWith(Number),
       history: paymentVouchers.history,
       createdAt: paymentVouchers.createdAt,
       updatedAt: paymentVouchers.updatedAt,
@@ -81,7 +93,7 @@ export async function GET(request: NextRequest) {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(paymentVouchers.createdAt));
 
-  const data = rows.map(({ attachmentCount, withholdingProofCount, ...row }) => ({
+  const data = rows.map(({ attachmentCount, withholdingProofCount, documentCount, ...row }) => ({
     ...serializePaymentVoucher({
       ...row,
       attachmentUrls: [],
@@ -97,6 +109,7 @@ export async function GET(request: NextRequest) {
     }),
     attachmentCount,
     withholdingProofCount,
+    documentCount,
   }));
   return NextResponse.json({ data, total: data.length });
 }

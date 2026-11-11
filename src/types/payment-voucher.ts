@@ -122,6 +122,8 @@ export interface PaymentVoucher {
   attachmentCount?: number;
   /** Jumlah file Bukti Potong PPh - cuma diisi di endpoint list. */
   withholdingProofCount?: number;
+  /** Total file lampiran + bukti bayar + dokumen pajak - cuma diisi di endpoint list. */
+  documentCount?: number;
   /** Data URL tiap halaman Lampiran (1 elemen kalau JPG/PNG, banyak kalau PDF multi-halaman) - dipakai buat preview & ikut ke print. */
   attachmentUrls: string[] | null;
   status: PvStatus;
