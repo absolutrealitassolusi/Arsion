@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/shared/page-header";
-import { PaymentVoucherWorklistTable } from "@/components/modules/payment-vouchers/payment-voucher-worklist-table";
+import { PaymentQueue } from "@/components/modules/payment-vouchers/payment-queue";
 
 export default function FinancePaymentPage() {
   return (
@@ -8,11 +8,7 @@ export default function FinancePaymentPage() {
         title="Payment"
         description="Payment Voucher (In & Out) yang sudah disetujui, siap diproses pembayarannya."
       />
-      <PaymentVoucherWorklistTable
-        status="approved"
-        basePath="/finance/payment"
-        emptyMessage="Tidak ada Payment Voucher yang siap dibayar."
-      />
+      <PaymentQueue />
     </div>
   );
 }

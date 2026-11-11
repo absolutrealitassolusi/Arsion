@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { usePaymentVouchers } from "@/hooks/use-payment-vouchers";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import type { PvDirection, PvStatus } from "@/types/payment-voucher";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { PAYMENT_METHOD_LABELS, type PvDirection, type PvStatus } from "@/types/payment-voucher";
 
 interface PaymentVoucherWorklistTableProps {
   /** Status yang dicari - worklist ini selalu terkunci ke 1 status. */
@@ -33,6 +33,10 @@ interface PaymentVoucherWorklistTableProps {
    * (halaman page.tsx) ke Client Component ini.
    */
   onlyMissingTaxInvoice?: boolean;
+  /** Tampilkan kolom Metode Pembayaran (dipakai di menu Payment). */
+  showPaymentMethod?: boolean;
+  /** Tampilkan kolom Tanggal Dibayar & urutkan dari yang terakhir dibayar. */
+  showPaidAt?: boolean;
 }
 
 export function PaymentVoucherWorklistTable({
@@ -41,11 +45,16 @@ export function PaymentVoucherWorklistTable({
   basePath,
   emptyMessage,
   onlyMissingTaxInvoice,
+  showPaymentMethod,
+  showPaidAt,
 }: PaymentVoucherWorklistTableProps) {
   const { data, isLoading, isError, error } = usePaymentVouchers({ status, direction });
-  const vouchers = (data?.data ?? []).filter((v) => (onlyMissingTaxInvoice ? !v.taxInvoiceNumber : true));
+  const filtered = (data?.data ?? []).filter((v) => (onlyMissingTaxInvoice ? !v.taxInvoiceNumber : true));
+  const vouchers = showPaidAt
+    ? [...filtered].sort((a, b) => new Date(b.paidAt ?? b.updatedAt).getTime() - new Date(a.paidAt ?? a.updatedAt).getTime())
+    : filtered;
 
-  const columnCount = direction ? 7 : 8;
+  const columnCount = 7 + (direction ? 0 : 1) + (showPaymentMethod ? 1 : 0) + (showPaidAt ? 1 : 0);
 
   return (
     <Table>
@@ -56,8 +65,10 @@ export function PaymentVoucherWorklistTable({
           <TableHead>Tanggal</TableHead>
           <TableHead>Vendor / Customer</TableHead>
           <TableHead>Bank Pengirim</TableHead>
+          {showPaymentMethod && <TableHead>Metode</TableHead>}
           <TableHead>Lampiran</TableHead>
           <TableHead>Total</TableHead>
+          {showPaidAt && <TableHead>Tanggal Dibayar</TableHead>}
           <TableHead className="text-right">Aksi</TableHead>
         </TableRow>
       </TableHeader>
@@ -112,15 +123,23 @@ export function PaymentVoucherWorklistTable({
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{voucher.senderBank || "-"}</TableCell>
+                {showPaymentMethod && (
+                  <TableCell className="text-muted-foreground">{PAYMENT_METHOD_LABELS[voucher.paymentMethod]}</TableCell>
+                )}
                 <TableCell className="text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Paperclip className="h-3.5 w-3.5" /> {voucher.attachmentCount ?? 0}
                   </span>
                 </TableCell>
                 <TableCell className="font-medium">{formatCurrency(voucher.totalAmount)}</TableCell>
+                {showPaidAt && (
+                  <TableCell className="text-muted-foreground">
+                    {voucher.paidAt ? formatDateTime(voucher.paidAt) : "-"}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <Link href={`${basePath}/${voucher.id}`} className="text-sm font-medium text-primary hover:underline">
-                    Proses →
+                    {showPaidAt ? "Lihat →" : "Proses →"}
                   </Link>
                 </TableCell>
               </TableRow>
