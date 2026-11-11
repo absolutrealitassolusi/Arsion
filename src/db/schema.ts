@@ -158,6 +158,11 @@ export const paymentVouchers = pgTable("PaymentVoucher", {
   // lihat src/lib/pv-files.ts.
   attachments: jsonb("attachments").$type<PvFile[]>().notNull().default([]),
   paymentProofs: jsonb("paymentProofs").$type<PvFile[]>().notNull().default([]),
+  // Dokumen pajak: file Faktur Pajak (PPN) & Bukti Potong PPh (23/21) dipisah.
+  // taxProofFileName/taxProofUrls di atas = gabungan keduanya (buat cetak/ZIP).
+  taxProofs: jsonb("taxProofs").$type<PvFile[]>().notNull().default([]),
+  withholdingProofs: jsonb("withholdingProofs").$type<PvFile[]>().notNull().default([]),
+  taxNote: text("taxNote"),
   // Kapan PV ditandai Dibayar (= bukti pembayaran di-upload) - diisi sekali,
   // gak ikut berubah kalau PV-nya diubah lagi belakangan (beda dari updatedAt).
   paidAt: timestamp("paidAt"),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePvTotals } from "./payment-voucher";
+import { calculatePvTotals, pvTaxStatus } from "./payment-voucher";
 import type { PaymentVoucherItem } from "./payment-voucher";
 
 const rates = { ppnPercent: 11, pphJasaPercent: 2, pphFreelancePercent: 5 };
@@ -98,5 +98,30 @@ describe("calculatePvTotals", () => {
     const totals = calculatePvTotals(items, { ppnPercent: 11, pphJasaPercent: 0, pphFreelancePercent: 0 });
 
     expect(totals.ppnAmount).toBe(11_000);
+  });
+});
+
+describe("pvTaxStatus", () => {
+  const base = { ppnAmount: 0, pphJasaAmount: 0, pphFreelanceAmount: 0, taxInvoiceNumber: null };
+
+  it("PV tanpa pajak gak masuk menu Tax", () => {
+    expect(pvTaxStatus(base, 0)).toMatchObject({ required: false, complete: true });
+  });
+
+  it("kena PPN butuh nomor Faktur", () => {
+    expect(pvTaxStatus({ ...base, ppnAmount: 110 }, 0)).toMatchObject({ needsFaktur: true, needsBupot: false, complete: false });
+    expect(pvTaxStatus({ ...base, ppnAmount: 110, taxInvoiceNumber: "  " }, 0).complete).toBe(false);
+    expect(pvTaxStatus({ ...base, ppnAmount: 110, taxInvoiceNumber: "010.1" }, 0).complete).toBe(true);
+  });
+
+  it("kena PPh butuh minimal 1 file Bukti Potong", () => {
+    expect(pvTaxStatus({ ...base, pphFreelanceAmount: 50 }, 0)).toMatchObject({ needsBupot: true, complete: false });
+    expect(pvTaxStatus({ ...base, pphFreelanceAmount: 50 }, 1).complete).toBe(true);
+  });
+
+  it("kena PPN & PPh butuh keduanya", () => {
+    const v = { ...base, ppnAmount: 110, pphJasaAmount: 20, taxInvoiceNumber: "010.1" };
+    expect(pvTaxStatus(v, 0).complete).toBe(false);
+    expect(pvTaxStatus(v, 2).complete).toBe(true);
   });
 });

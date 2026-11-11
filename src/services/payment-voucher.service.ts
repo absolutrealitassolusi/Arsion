@@ -14,6 +14,14 @@ export interface PaymentProofPayload {
   paymentNote?: string;
 }
 
+/** Dokumen pajak PV yang sudah dibayar - menggantikan semua yang tersimpan. */
+export interface TaxDocumentsPayload {
+  taxInvoiceNumber: string | null;
+  taxProofs: PvFile[];
+  withholdingProofs: PvFile[];
+  taxNote: string | null;
+}
+
 export interface PaymentVoucherFilters {
   direction?: PvDirection;
   search?: string;
@@ -86,17 +94,8 @@ export const paymentVoucherService = {
   },
 
   /** Cuma boleh dipanggil kalau status PV sudah "paid" - lihat mock-adapter. */
-  async updateTaxInvoice(
-    id: string,
-    taxInvoiceNumber: string,
-    taxProofFileName?: string | null,
-    taxProofUrls?: string[] | null
-  ): Promise<PaymentVoucherDetailResponse> {
-    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/tax-invoice`, {
-      taxInvoiceNumber,
-      taxProofFileName,
-      taxProofUrls,
-    });
+  async updateTaxDocuments(id: string, payload: TaxDocumentsPayload): Promise<PaymentVoucherDetailResponse> {
+    const { data } = await api.patch<PaymentVoucherDetailResponse>(`/payment-vouchers/${id}/tax-invoice`, payload);
     return data;
   },
 

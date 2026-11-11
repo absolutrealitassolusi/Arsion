@@ -6,7 +6,7 @@ export default async function TaxOutDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Isi Faktur Pajak" description="Info, Approval, Payment, Tax, dan History dalam satu tempat." />
+      <PageHeader title="Dokumen Pajak" description="Info, Approval, Payment, Tax, dan History dalam satu tempat." />
       <PaymentVoucherDetailTabs voucherId={id} initialTab="tax" />
     </div>
   );

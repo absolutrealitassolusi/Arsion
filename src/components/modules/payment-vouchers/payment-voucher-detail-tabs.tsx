@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Printer, Send, Check, X, Wallet, Save, Paperclip, Pencil, Ban } from "lucide-react";
+import { Printer, Send, Check, X, Wallet, Save, Pencil, Ban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ import {
   CANCELLABLE_PV_STATUSES,
   ITEM_CATEGORY_LABELS,
   PAYMENT_METHOD_LABELS,
+  pvTaxStatus,
   type PaymentVoucher,
   type PvFile,
   type PvStatus,
@@ -36,27 +36,18 @@ import {
   useRejectPaymentVoucher,
   useCancelPaymentVoucher,
   useMarkPaymentVoucherPaid,
-  useUpdateTaxInvoice,
+  useUpdateTaxDocuments,
   useUploadPaymentProof,
 } from "@/hooks/use-payment-vouchers";
 import { useUsers } from "@/hooks/use-users";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useUploadDataUrls } from "@/hooks/use-file-upload";
 import { useResolvedFileUrls, useResolvedFileUrl } from "@/hooks/use-resolved-file-urls";
-import { getErrorMessage } from "@/lib/axios";
 import { PERMISSIONS } from "@/config/permissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import { fileToPreviewDataUrls } from "@/lib/file-to-data-url";
 import { PaymentVoucherPrint } from "@/components/modules/payment-vouchers/payment-voucher-print";
 import { FilePreviewThumbnails } from "@/components/modules/payment-vouchers/file-preview-thumbnails";
 import { MultiFileUpload } from "@/components/modules/payment-vouchers/multi-file-upload";
-
-interface FileInput {
-  name: string;
-  /** Path Storage (atau data URL lama) - ini yang disimpan ke server, BUKAN buat preview langsung. */
-  urls: string[];
-}
 
 const statusMap: Record<PvStatus, { label: string; variant: "secondary" | "default" | "success" | "destructive" }> = {
   draft: { label: "Draft", variant: "secondary" },
@@ -108,6 +99,17 @@ interface DirectionLabels {
   receiverBank: string;
   receiverAccountName: string;
   receiverAccountNumber: string;
+}
+
+/** Label kecil di samping judul dokumen pajak: wajib/tidak & sudah ada/belum. */
+function TaxRequirementBadge({ needed, done, amount }: { needed: boolean; done: boolean; amount: number }) {
+  if (!needed) return <Badge variant="secondary">Tidak wajib</Badge>;
+  return (
+    <>
+      <Badge variant={done ? "success" : "destructive"}>{done ? "Lengkap" : "Belum ada"}</Badge>
+      <span className="text-xs text-muted-foreground">Pajak {formatCurrency(amount)}</span>
+    </>
+  );
 }
 
 /**
@@ -224,25 +226,25 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   const rejectVoucher = useRejectPaymentVoucher(voucherId);
   const cancelVoucher = useCancelPaymentVoucher(voucherId);
   const payVoucher = useMarkPaymentVoucherPaid(voucherId);
-  const updateTaxInvoice = useUpdateTaxInvoice(voucherId);
+  const updateTaxDocuments = useUpdateTaxDocuments(voucherId);
   const uploadPaymentProof = useUploadPaymentProof(voucherId);
-  const uploadTaxProofFile = useUploadDataUrls();
 
   const currentUser = useCurrentUser();
   const canApprove = useHasPermission(PERMISSIONS.PV_APPROVE);
   const canPay = useHasPermission(PERMISSIONS.PV_PAY);
 
+  // Dokumen pajak: Faktur Pajak (nomor + file) & Bukti Potong PPh (file) + catatan.
   const [taxInvoiceInput, setTaxInvoiceInput] = useState("");
-  const [taxProofInput, setTaxProofInput] = useState<FileInput | null>(null);
+  const [taxProofFiles, setTaxProofFiles] = useState<PvFile[]>([]);
+  const [withholdingFiles, setWithholdingFiles] = useState<PvFile[]>([]);
+  const [taxNoteInput, setTaxNoteInput] = useState("");
+  const [isUploadingTaxProof, setIsUploadingTaxProof] = useState(false);
+  const [isUploadingWithholding, setIsUploadingWithholding] = useState(false);
   // Bukti pembayaran (bisa lebih dari 1 file) + catatan pembayaran - wajib
   // minimal 1 file sebelum bisa "Tandai Sudah Dibayar".
   const [paymentProofFiles, setPaymentProofFiles] = useState<PvFile[]>([]);
   const [paymentNoteInput, setPaymentNoteInput] = useState("");
   const [isUploadingPaymentProof, setIsUploadingPaymentProof] = useState(false);
-  // Preview lokal instan pas user baru pilih file (data URL) - beda dari
-  // `taxProofInput.urls` (path Storage yang beneran disimpan). null = belum
-  // ganti file baru sejak PV ini dibuka, preview pakai yang sudah tersimpan.
-  const [freshTaxProofPreview, setFreshTaxProofPreview] = useState<string[] | null>(null);
 
   const voucher = data?.data;
   // Cuma pembuat PV yang boleh edit draft-nya / edit & ajukan ulang yang
@@ -276,40 +278,17 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   const printAttachmentUrls = notNull(existingAttachmentPreview.data);
   const printPaymentProofUrls = notNull(existingPaymentProofPreview.data);
   const printTaxProofUrls = notNull(existingTaxProofPreview.data);
-  // Buat thumbnail kecil di bawah tombol upload - boleh langsung reflect
-  // file yang baru dipilih (instan), beda dari preview dokumen besar di atas.
-  const taxProofPreviewUrls = freshTaxProofPreview ?? printTaxProofUrls;
 
   useEffect(() => {
     if (voucher) {
       setTaxInvoiceInput(voucher.taxInvoiceNumber ?? "");
-      setTaxProofInput(
-        voucher.taxProofFileName && voucher.taxProofUrls
-          ? { name: voucher.taxProofFileName, urls: voucher.taxProofUrls }
-          : null
-      );
+      setTaxProofFiles(voucher.taxProofs);
+      setWithholdingFiles(voucher.withholdingProofs);
+      setTaxNoteInput(voucher.taxNote ?? "");
       setPaymentProofFiles(voucher.paymentProofs);
       setPaymentNoteInput(voucher.paymentNote ?? "");
-      setFreshTaxProofPreview(null);
     }
   }, [voucher]);
-
-  const handleTaxProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      const previewUrls = await fileToPreviewDataUrls(file);
-      setFreshTaxProofPreview(previewUrls);
-      const paths = await uploadTaxProofFile.mutateAsync({ dataUrls: previewUrls, kind: "pv-tax-proof", baseName: file.name });
-      setTaxProofInput({ name: file.name, urls: paths });
-    } catch (err) {
-      toast.error(getErrorMessage(err, `Gagal membaca file "${file.name}" - coba file lain.`));
-      setFreshTaxProofPreview(null);
-    } finally {
-      input.value = "";
-    }
-  };
 
   if (isLoading || !voucher) {
     return (
@@ -350,6 +329,8 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
   // Aturannya sama persis dengan route PATCH /cancel: status belum Dibayar,
   // dan yang klik pembuat PV-nya atau user dengan izin Approve.
   const canCancel = CANCELLABLE_PV_STATUSES.includes(voucher.status) && (isOwnVoucher || canApprove);
+  // Status dokumen pajak yang SUDAH TERSIMPAN (bukan isian yang belum disimpan).
+  const taxStatus = pvTaxStatus(voucher, voucher.withholdingProofs.length);
 
   const actionConfig: Record<Exclude<PendingAction, null>, {
     title: string;
@@ -677,61 +658,101 @@ export function PaymentVoucherDetailTabs({ voucherId, initialTab, backToListPath
               <VoucherSummary voucher={voucher} labels={labels} />
 
               {voucher.status === "paid" ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="taxInvoiceNumber">Faktur Pajak</Label>
-                    <Input
-                      id="taxInvoiceNumber"
-                      placeholder="010.000-26.00000001"
-                      value={taxInvoiceInput}
-                      onChange={(e) => setTaxInvoiceInput(e.target.value)}
-                      disabled={!canPay}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxProof">Bukti Pajak</Label>
-                    <label
-                      htmlFor="taxProof"
-                      className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:bg-accent aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
-                      aria-disabled={!canPay}
-                    >
-                      <Paperclip className="h-4 w-4" />
-                      {taxProofInput?.name || "Pilih file Faktur Pajak/bukti pajak (JPG, PNG, atau PDF)"}
-                    </label>
-                    <input
-                      id="taxProof"
-                      type="file"
-                      accept="image/png,image/jpeg,application/pdf"
-                      className="hidden"
-                      disabled={!canPay}
-                      onChange={handleTaxProofChange}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Kalau PDF, semua halamannya ikut ditampilkan & ke-print.
+                <div className="space-y-6">
+                  {!taxStatus.required && (
+                    <p className="rounded-[10px] border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
+                      PV ini tidak kena PPN maupun PPh, jadi tidak butuh dokumen pajak.
                     </p>
-                    <FilePreviewThumbnails urls={taxProofPreviewUrls} altPrefix="Preview bukti pajak" />
+                  )}
+
+                  <section className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">Faktur Pajak (PPN)</p>
+                      <TaxRequirementBadge
+                        needed={taxStatus.needsFaktur}
+                        done={taxStatus.hasFaktur}
+                        amount={voucher.ppnAmount}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="taxInvoiceNumber">Nomor Faktur Pajak</Label>
+                      <Input
+                        id="taxInvoiceNumber"
+                        placeholder="010.000-26.00000001"
+                        value={taxInvoiceInput}
+                        onChange={(e) => setTaxInvoiceInput(e.target.value)}
+                        disabled={!canPay}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="taxProof">File Faktur Pajak</Label>
+                      <MultiFileUpload
+                        id="taxProof"
+                        files={taxProofFiles}
+                        onChange={setTaxProofFiles}
+                        kind="pv-tax-proof"
+                        placeholder="Tambah file Faktur Pajak (JPG, PNG, atau PDF)"
+                        altPrefix="Preview Faktur Pajak"
+                        disabled={!canPay}
+                        onUploadingChange={setIsUploadingTaxProof}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">Bukti Potong PPh 23 / 21</p>
+                      <TaxRequirementBadge
+                        needed={taxStatus.needsBupot}
+                        done={taxStatus.hasBupot}
+                        amount={voucher.pphJasaAmount + voucher.pphFreelanceAmount}
+                      />
+                    </div>
+                    <MultiFileUpload
+                      id="withholdingProof"
+                      files={withholdingFiles}
+                      onChange={setWithholdingFiles}
+                      kind="pv-tax-proof"
+                      placeholder="Tambah file Bukti Potong (JPG, PNG, atau PDF)"
+                      altPrefix="Preview Bukti Potong"
+                      disabled={!canPay}
+                      onUploadingChange={setIsUploadingWithholding}
+                    />
+                  </section>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="taxNote">Catatan Pajak (Opsional)</Label>
+                    <Textarea
+                      id="taxNote"
+                      rows={2}
+                      placeholder="Contoh: Bukti potong sudah dikirim ke vendor via email"
+                      value={taxNoteInput}
+                      onChange={(e) => setTaxNoteInput(e.target.value)}
+                      disabled={!canPay}
+                    />
                   </div>
-                  {canPay && (
+
+                  {canPay ? (
                     <Button
                       type="button"
                       variant="outline"
-                      isLoading={updateTaxInvoice.isPending}
-                      disabled={uploadTaxProofFile.isPending}
+                      isLoading={updateTaxDocuments.isPending}
+                      disabled={isUploadingTaxProof || isUploadingWithholding}
                       onClick={() =>
-                        updateTaxInvoice.mutate({
-                          taxInvoiceNumber: taxInvoiceInput,
-                          taxProofFileName: taxProofInput?.name ?? null,
-                          taxProofUrls: taxProofInput?.urls ?? null,
+                        updateTaxDocuments.mutate({
+                          taxInvoiceNumber: taxInvoiceInput.trim() || null,
+                          taxProofs: taxProofFiles,
+                          withholdingProofs: withholdingFiles,
+                          taxNote: taxNoteInput.trim() || null,
                         })
                       }
                     >
                       <Save className="h-4 w-4" />
-                      Simpan
+                      Simpan Dokumen Pajak
                     </Button>
-                  )}
-                  {!canPay && (
+                  ) : (
                     <p className="text-xs text-muted-foreground">
-                      Kamu tidak punya izin buat mengisi Faktur Pajak.
+                      Kamu tidak punya izin buat mengisi dokumen pajak.
                     </p>
                   )}
                 </div>

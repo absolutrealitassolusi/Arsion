@@ -13,7 +13,30 @@ import {
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { usePaymentVouchers } from "@/hooks/use-payment-vouchers";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import { PAYMENT_METHOD_LABELS, type PvDirection, type PvStatus } from "@/types/payment-voucher";
+import {
+  PAYMENT_METHOD_LABELS,
+  pvTaxStatus,
+  type PaymentVoucher,
+  type PvDirection,
+  type PvStatus,
+} from "@/types/payment-voucher";
+
+/** Ringkas status dokumen pajak per PV, mis. "Faktur ✓ · Bupot ✗". */
+function TaxDocsCell({ voucher }: { voucher: PaymentVoucher }) {
+  const tax = pvTaxStatus(voucher, voucher.withholdingProofCount ?? 0);
+  const part = (label: string, done: boolean) => (
+    <span className={done ? "text-success" : "text-destructive"}>
+      {label} {done ? "✓" : "✗"}
+    </span>
+  );
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 text-xs font-medium">
+      {tax.needsFaktur && part("Faktur", tax.hasFaktur)}
+      {tax.needsFaktur && tax.needsBupot && <span className="text-muted-foreground">·</span>}
+      {tax.needsBupot && part("Bupot", tax.hasBupot)}
+    </span>
+  );
+}
 
 interface PaymentVoucherWorklistTableProps {
   /** Status yang dicari - worklist ini selalu terkunci ke 1 status. */
@@ -28,11 +51,11 @@ interface PaymentVoucherWorklistTableProps {
   basePath: string;
   emptyMessage: string;
   /**
-   * Cuma tampilin PV yang Faktur Pajak-nya belum diisi (dipakai buat Tax In/Out).
-   * Sengaja boolean, bukan fungsi - fungsi gak bisa dioper dari Server Component
-   * (halaman page.tsx) ke Client Component ini.
+   * Mode Tax In/Out: cuma PV yang kena pajak, disaring berdasarkan
+   * kelengkapan dokumennya (lihat pvTaxStatus). Kolom Bank & Lampiran
+   * diganti kolom PPN, PPh, dan status dokumen.
    */
-  onlyMissingTaxInvoice?: boolean;
+  taxFilter?: "incomplete" | "complete";
   /** Tampilkan kolom Metode Pembayaran (dipakai di menu Payment). */
   showPaymentMethod?: boolean;
   /** Tampilkan kolom Tanggal Dibayar & urutkan dari yang terakhir dibayar. */
@@ -44,17 +67,24 @@ export function PaymentVoucherWorklistTable({
   direction,
   basePath,
   emptyMessage,
-  onlyMissingTaxInvoice,
+  taxFilter,
   showPaymentMethod,
   showPaidAt,
 }: PaymentVoucherWorklistTableProps) {
   const { data, isLoading, isError, error } = usePaymentVouchers({ status, direction });
-  const filtered = (data?.data ?? []).filter((v) => (onlyMissingTaxInvoice ? !v.taxInvoiceNumber : true));
+  const taxMode = Boolean(taxFilter);
+  const filtered = (data?.data ?? []).filter((v) => {
+    if (!taxFilter) return true;
+    const tax = pvTaxStatus(v, v.withholdingProofCount ?? 0);
+    return tax.required && (taxFilter === "complete" ? tax.complete : !tax.complete);
+  });
   const vouchers = showPaidAt
     ? [...filtered].sort((a, b) => new Date(b.paidAt ?? b.updatedAt).getTime() - new Date(a.paidAt ?? a.updatedAt).getTime())
     : filtered;
 
-  const columnCount = 7 + (direction ? 0 : 1) + (showPaymentMethod ? 1 : 0) + (showPaidAt ? 1 : 0);
+  // No, Tanggal, Party, Total, Aksi + (Bank, Lampiran) atau (PPN, PPh, Dokumen).
+  const columnCount =
+    5 + (taxMode ? 3 : 2) + (direction ? 0 : 1) + (showPaymentMethod ? 1 : 0) + (showPaidAt ? 1 : 0);
 
   return (
     <Table>
@@ -64,9 +94,12 @@ export function PaymentVoucherWorklistTable({
           {!direction && <TableHead>Arah</TableHead>}
           <TableHead>Tanggal</TableHead>
           <TableHead>Vendor / Customer</TableHead>
-          <TableHead>Bank Pengirim</TableHead>
+          {!taxMode && <TableHead>Bank Pengirim</TableHead>}
           {showPaymentMethod && <TableHead>Metode</TableHead>}
-          <TableHead>Lampiran</TableHead>
+          {!taxMode && <TableHead>Lampiran</TableHead>}
+          {taxMode && <TableHead>PPN</TableHead>}
+          {taxMode && <TableHead>PPh</TableHead>}
+          {taxMode && <TableHead>Dokumen</TableHead>}
           <TableHead>Total</TableHead>
           {showPaidAt && <TableHead>Tanggal Dibayar</TableHead>}
           <TableHead className="text-right">Aksi</TableHead>
@@ -122,15 +155,30 @@ export function PaymentVoucherWorklistTable({
                     </p>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">{voucher.senderBank || "-"}</TableCell>
+                {!taxMode && <TableCell className="text-muted-foreground">{voucher.senderBank || "-"}</TableCell>}
                 {showPaymentMethod && (
                   <TableCell className="text-muted-foreground">{PAYMENT_METHOD_LABELS[voucher.paymentMethod]}</TableCell>
                 )}
-                <TableCell className="text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Paperclip className="h-3.5 w-3.5" /> {voucher.attachmentCount ?? 0}
-                  </span>
-                </TableCell>
+                {!taxMode && (
+                  <TableCell className="text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Paperclip className="h-3.5 w-3.5" /> {voucher.attachmentCount ?? 0}
+                    </span>
+                  </TableCell>
+                )}
+                {taxMode && <TableCell>{voucher.ppnAmount > 0 ? formatCurrency(voucher.ppnAmount) : "-"}</TableCell>}
+                {taxMode && (
+                  <TableCell>
+                    {voucher.pphJasaAmount + voucher.pphFreelanceAmount > 0
+                      ? formatCurrency(voucher.pphJasaAmount + voucher.pphFreelanceAmount)
+                      : "-"}
+                  </TableCell>
+                )}
+                {taxMode && (
+                  <TableCell>
+                    <TaxDocsCell voucher={voucher} />
+                  </TableCell>
+                )}
                 <TableCell className="font-medium">{formatCurrency(voucher.totalAmount)}</TableCell>
                 {showPaidAt && (
                   <TableCell className="text-muted-foreground">
@@ -139,7 +187,7 @@ export function PaymentVoucherWorklistTable({
                 )}
                 <TableCell className="text-right">
                   <Link href={`${basePath}/${voucher.id}`} className="text-sm font-medium text-primary hover:underline">
-                    {showPaidAt ? "Lihat →" : "Proses →"}
+                    {showPaidAt || taxFilter === "complete" ? "Lihat →" : "Proses →"}
                   </Link>
                 </TableCell>
               </TableRow>

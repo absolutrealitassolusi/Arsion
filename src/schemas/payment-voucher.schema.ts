@@ -59,5 +59,28 @@ export const paymentProofSchema = z.object({
   paymentNote: z.string().trim().max(500, "Maksimal 500 karakter").optional(),
 });
 
+/**
+ * Body PATCH /payment-vouchers/:id/tax-invoice - dokumen pajak setelah dibayar.
+ * Semua opsional (boleh diisi bertahap); nomor Faktur kosong disimpan sebagai null.
+ */
+export const taxDocumentsSchema = z.object({
+  taxInvoiceNumber: z
+    .string()
+    .trim()
+    .max(50, "Maksimal 50 karakter")
+    .nullish()
+    .transform((v) => (v ? v : null)),
+  taxProofs: z.array(pvFileSchema).max(20, "Maksimal 20 file").default([]),
+  withholdingProofs: z.array(pvFileSchema).max(20, "Maksimal 20 file").default([]),
+  taxNote: z
+    .string()
+    .trim()
+    .max(500, "Maksimal 500 karakter")
+    .nullish()
+    .transform((v) => (v ? v : null)),
+});
+
+export type TaxDocumentsValues = z.input<typeof taxDocumentsSchema>;
+
 export type PaymentVoucherItemValues = z.infer<typeof paymentVoucherItemSchema>;
 export type PaymentVoucherFormValues = z.infer<typeof paymentVoucherSchema>;

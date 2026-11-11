@@ -4,6 +4,7 @@ import {
   paymentVoucherService,
   type PaymentProofPayload,
   type PaymentVoucherFilters,
+  type TaxDocumentsPayload,
 } from "@/services/payment-voucher.service";
 import type { ApiErrorShape } from "@/lib/axios";
 import type { PaymentVoucherPayload } from "@/types/payment-voucher";
@@ -161,25 +162,17 @@ export function useMarkPaymentVoucherPaid(id: string) {
   });
 }
 
-export function useUpdateTaxInvoice(id: string) {
+export function useUpdateTaxDocuments(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      taxInvoiceNumber,
-      taxProofFileName,
-      taxProofUrls,
-    }: {
-      taxInvoiceNumber: string;
-      taxProofFileName?: string | null;
-      taxProofUrls?: string[] | null;
-    }) => paymentVoucherService.updateTaxInvoice(id, taxInvoiceNumber, taxProofFileName, taxProofUrls),
+    mutationFn: (payload: TaxDocumentsPayload) => paymentVoucherService.updateTaxDocuments(id, payload),
     onSuccess: () => {
-      toast.success("Nomor Faktur Pajak berhasil disimpan");
+      toast.success("Dokumen pajak berhasil disimpan");
       queryClient.invalidateQueries({ queryKey: paymentVoucherKeys.all });
     },
     onError: (error: ApiErrorShape) => {
-      toast.error(error.message ?? "Gagal menyimpan Faktur Pajak");
+      toast.error(error.message ?? "Gagal menyimpan dokumen pajak");
     },
   });
 }

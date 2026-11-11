@@ -71,6 +71,8 @@ export async function GET(request: NextRequest) {
       paymentNote: paymentVouchers.paymentNote,
       paymentProofFileName: paymentVouchers.paymentProofFileName,
       taxProofFileName: paymentVouchers.taxProofFileName,
+      taxNote: paymentVouchers.taxNote,
+      withholdingProofCount: sql<number>`jsonb_array_length(${paymentVouchers.withholdingProofs})`.mapWith(Number),
       history: paymentVouchers.history,
       createdAt: paymentVouchers.createdAt,
       updatedAt: paymentVouchers.updatedAt,
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(paymentVouchers.createdAt));
 
-  const data = rows.map(({ attachmentCount, ...row }) => ({
+  const data = rows.map(({ attachmentCount, withholdingProofCount, ...row }) => ({
     ...serializePaymentVoucher({
       ...row,
       attachmentUrls: [],
@@ -87,11 +89,14 @@ export async function GET(request: NextRequest) {
       taxProofUrls: [],
       attachments: [],
       paymentProofs: [],
+      taxProofs: [],
+      withholdingProofs: [],
       preparedSignatureSnapshot: null,
       approvedSignatureSnapshot: null,
       paidSignatureSnapshot: null,
     }),
     attachmentCount,
+    withholdingProofCount,
   }));
   return NextResponse.json({ data, total: data.length });
 }

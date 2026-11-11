@@ -9,6 +9,25 @@ import type {
 } from "@/types/payment-voucher";
 import { pvFilesFromRow } from "@/lib/pv-files";
 
+/**
+ * PV lama cuma punya 1 "Bukti Pajak" (kolom taxProof*), dianggap file Faktur.
+ * Fallback ini HANYA kalau dua daftar baru kosong - sejak ada pemisahan,
+ * kolom lama berisi gabungan Faktur + Bukti Potong, jadi gak boleh dibaca balik.
+ */
+function taxFilesFromRow(voucher: {
+  taxProofs: unknown;
+  withholdingProofs: unknown;
+  taxProofFileName: string | null;
+  taxProofUrls: string[];
+}): { taxProofs: PvFile[]; withholdingProofs: PvFile[] } {
+  const taxProofs = (voucher.taxProofs as PvFile[] | null) ?? [];
+  const withholdingProofs = (voucher.withholdingProofs as PvFile[] | null) ?? [];
+  if (taxProofs.length === 0 && withholdingProofs.length === 0) {
+    return { taxProofs: pvFilesFromRow([], voucher.taxProofFileName, voucher.taxProofUrls), withholdingProofs: [] };
+  }
+  return { taxProofs, withholdingProofs };
+}
+
 interface PrismaPaymentVoucher {
   id: string;
   direction: PvDirection;
@@ -45,6 +64,9 @@ interface PrismaPaymentVoucher {
   taxProofUrls: string[];
   attachments: unknown;
   paymentProofs: unknown;
+  taxProofs: unknown;
+  withholdingProofs: unknown;
+  taxNote: string | null;
   paidAt: Date | null;
   paymentNote: string | null;
   preparedSignatureSnapshot: string | null;
@@ -99,6 +121,8 @@ export function serializePaymentVoucher(voucher: PrismaPaymentVoucher): ApiPayme
     taxProofUrls: urlsOrNull(voucher.taxProofUrls),
     attachments: pvFilesFromRow(voucher.attachments as PvFile[], voucher.attachmentName, voucher.attachmentUrls),
     paymentProofs: pvFilesFromRow(voucher.paymentProofs as PvFile[], voucher.paymentProofFileName, voucher.paymentProofUrls),
+    ...taxFilesFromRow(voucher),
+    taxNote: voucher.taxNote,
     paidAt: voucher.paidAt?.toISOString() ?? null,
     paymentNote: voucher.paymentNote,
     preparedSignatureSnapshot: voucher.preparedSignatureSnapshot,

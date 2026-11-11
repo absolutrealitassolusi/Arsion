@@ -43,6 +43,13 @@
       "when": 1794298474042,
       "tag": "0005_pv_files_paid_at_giro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794389508049,
+      "tag": "0006_pv_tax_documents",
+      "breakpoints": true
     }
   ]
 }

@@ -120,6 +120,8 @@ export interface PaymentVoucher {
   attachmentName: string | null;
   /** Jumlah file Lampiran - cuma diisi di endpoint list (yang gak ngirim isi lampirannya). */
   attachmentCount?: number;
+  /** Jumlah file Bukti Potong PPh - cuma diisi di endpoint list. */
+  withholdingProofCount?: number;
   /** Data URL tiap halaman Lampiran (1 elemen kalau JPG/PNG, banyak kalau PDF multi-halaman) - dipakai buat preview & ikut ke print. */
   attachmentUrls: string[] | null;
   status: PvStatus;
@@ -142,6 +144,10 @@ export interface PaymentVoucher {
   /** Daftar file lampiran & bukti bayar (bisa lebih dari 1). Kosong di endpoint list. */
   attachments: PvFile[];
   paymentProofs: PvFile[];
+  /** File Faktur Pajak (PPN) & Bukti Potong PPh (23/21) - dipisah. Kosong di endpoint list. */
+  taxProofs: PvFile[];
+  withholdingProofs: PvFile[];
+  taxNote: string | null;
   /** Kapan ditandai Dibayar (saat bukti pembayaran di-upload). Null = belum dibayar / PV lama. */
   paidAt: string | null;
   paymentNote: string | null;
@@ -197,4 +203,41 @@ export interface PaymentVoucherDetailResponse {
 export interface PvStatusCounts {
   submitted: number;
   approved: number;
+}
+
+/** Kelengkapan dokumen pajak satu PV yang sudah dibayar. */
+export interface PvTaxStatus {
+  /** Kena PPN -> butuh Faktur Pajak. */
+  needsFaktur: boolean;
+  /** Kena PPh 23/21 -> butuh Bukti Potong. */
+  needsBupot: boolean;
+  hasFaktur: boolean;
+  hasBupot: boolean;
+  /** Ada pajak sama sekali (kalau false, PV ini gak masuk menu Tax). */
+  required: boolean;
+  /** Semua dokumen yang dibutuhkan sudah ada. */
+  complete: boolean;
+}
+
+/**
+ * Faktur dianggap ada kalau nomornya terisi; Bukti Potong kalau minimal 1
+ * file. `bupotFileCount` dioper terpisah karena endpoint list cuma kirim
+ * jumlahnya (withholdingProofCount), bukan isi filenya.
+ */
+export function pvTaxStatus(
+  voucher: Pick<PaymentVoucher, "ppnAmount" | "pphJasaAmount" | "pphFreelanceAmount" | "taxInvoiceNumber">,
+  bupotFileCount: number
+): PvTaxStatus {
+  const needsFaktur = voucher.ppnAmount > 0;
+  const needsBupot = voucher.pphJasaAmount + voucher.pphFreelanceAmount > 0;
+  const hasFaktur = Boolean(voucher.taxInvoiceNumber?.trim());
+  const hasBupot = bupotFileCount > 0;
+  return {
+    needsFaktur,
+    needsBupot,
+    hasFaktur,
+    hasBupot,
+    required: needsFaktur || needsBupot,
+    complete: (!needsFaktur || hasFaktur) && (!needsBupot || hasBupot),
+  };
 }
