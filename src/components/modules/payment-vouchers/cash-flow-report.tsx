@@ -19,8 +19,26 @@ import { usePaymentVouchers } from "@/hooks/use-payment-vouchers";
 import { buildReportWorkbook, downloadWorkbook } from "@/lib/export-excel";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
+/** "YYYY-MM" sebuah waktu menurut jam WIB (bukan UTC - jam 00:00-06:59 WIB tanggal 1 masih bulan lalu di UTC). */
+function monthInJakarta(date: Date | string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).formatToParts(
+    new Date(date)
+  );
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}`;
+}
+
 function currentMonthValue() {
-  return new Date().toISOString().slice(0, 7);
+  return monthInJakarta(new Date());
+}
+
+/**
+ * Kapan uangnya benar-benar bergerak = Tanggal Dibayar. PV lama dari
+ * sebelum kolom paidAt ada (null) diperkirakan dari updatedAt - sama
+ * dengan dashboard & halaman Payment.
+ */
+function cashDate(v: { paidAt: string | null; updatedAt: string }): string {
+  return v.paidAt ?? v.updatedAt;
 }
 
 function periodLabel(month: string) {
@@ -33,13 +51,16 @@ function periodLabel(month: string) {
 /**
  * Cuma hitung PV yang statusnya "paid" - PV yang masih Draft/Menunggu
  * Approval belum benar-benar jadi arus kas, jadi gak masuk hitungan.
+ * Periode dihitung dari Tanggal Dibayar, bukan tanggal PV dibuat.
  */
 export function CashFlowReport() {
   const [month, setMonth] = useState(currentMonthValue());
   const { data, isLoading } = usePaymentVouchers({ status: "paid" });
 
   const vouchers = useMemo(() => {
-    return (data?.data ?? []).filter((v) => !month || v.date.startsWith(month));
+    return (data?.data ?? [])
+      .filter((v) => !month || monthInJakarta(cashDate(v)) === month)
+      .sort((a, b) => new Date(cashDate(b)).getTime() - new Date(cashDate(a)).getTime());
   }, [data, month]);
 
   const cashIn = vouchers.filter((v) => v.direction === "in").reduce((sum, v) => sum + v.totalAmount, 0);
@@ -59,9 +80,10 @@ export function CashFlowReport() {
       ],
     },
     detailSheet: {
-      headers: ["No. PV", "Tanggal", "Arah", "Vendor/Customer", "Total"],
+      headers: ["No. PV", "Tanggal Dibayar", "Tanggal PV", "Arah", "Vendor/Customer", "Total"],
       rows: vouchers.map((v) => [
         v.voucherNumber,
+        formatDate(cashDate(v)),
         formatDate(v.date),
         v.direction === "in" ? "In" : "Out",
         v.partyName,
@@ -103,8 +125,8 @@ export function CashFlowReport() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Hanya menghitung Payment Voucher berstatus <strong>Dibayar</strong> - yang masih Draft/Menunggu
-        Approval belum dianggap arus kas beneran.
+        Hanya menghitung Payment Voucher berstatus <strong>Dibayar</strong>, dikelompokkan berdasarkan{" "}
+        <strong>Tanggal Dibayar</strong> (kapan uangnya benar-benar masuk/keluar), bukan tanggal PV dibuat.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -164,7 +186,8 @@ export function CashFlowReport() {
             <TableHeader>
               <TableRow>
                 <TableHead>No. PV</TableHead>
-                <TableHead>Tanggal</TableHead>
+                <TableHead>Tanggal Dibayar</TableHead>
+                <TableHead>Tanggal PV</TableHead>
                 <TableHead>Arah</TableHead>
                 <TableHead>Vendor/Customer</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -173,7 +196,7 @@ export function CashFlowReport() {
             <TableBody>
               {vouchers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center">
+                  <TableCell colSpan={6} className="py-10 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Inbox className="h-8 w-8" />
                       <p className="text-sm">Tidak ada PV yang dibayar pada periode ini.</p>
@@ -184,6 +207,7 @@ export function CashFlowReport() {
               {vouchers.map((v) => (
                 <TableRow key={v.id}>
                   <TableCell className="font-medium">{v.voucherNumber}</TableCell>
+                  <TableCell>{formatDate(cashDate(v))}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(v.date)}</TableCell>
                   <TableCell>{v.direction === "in" ? "In" : "Out"}</TableCell>
                   <TableCell>{v.partyName}</TableCell>
